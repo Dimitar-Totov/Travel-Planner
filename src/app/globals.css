@@ -1,26 +1,174 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/* Font families resolve the next/font CSS variables at runtime, so they stay
+   inline (utilities like `font-sans` / `font-serif` reference the vars). */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-newsreader), ui-serif, Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Brand palette — deep teal with warm gold + green accents. Emitting real
+   :root custom properties (non-inline) means we can reach for `var(--color-*)`
+   inside bespoke gradients/shadows as well as the generated utilities. */
+@theme {
+  --color-ink: #18242e;
+  --color-ink-soft: #16242e;
+  --color-muted: #5f6f78;
+  --color-muted-2: #7a8791;
+  --color-line: #e9edf1;
+
+  --color-surface: #eef0f2;
+  --color-surface-2: #f4f7f9;
+  --color-surface-3: #f6f8fa;
+
+  --color-brand-300: #7cc0e6;
+  --color-brand-400: #5ea8d3;
+  --color-brand-500: #2f7fb0;
+  --color-brand-600: #1c6392;
+  --color-brand-650: #164e73;
+  --color-brand-700: #134a6f;
+  --color-brand-800: #123f5e;
+  --color-brand-900: #103a58;
+  --color-navy: #0f2f47;
+  --color-navy-deep: #0b2438;
+
+  --color-gold: #c9a15a;
+  --color-gold-2: #c69a3a;
+  --color-success: #2c8b5f;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-surface-2);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---- Motion primitives (ported from the design doc) --------------------- */
+@keyframes tp-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes tp-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+@keyframes tp-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pb-grow {
+  from {
+    width: 0;
+  }
+}
+@keyframes pb-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes tp-map-pulse {
+  0% {
+    r: 7;
+    opacity: 0.45;
+  }
+  70% {
+    r: 22;
+    opacity: 0;
+  }
+  100% {
+    r: 22;
+    opacity: 0;
+  }
+}
+
+/* Blinking text caret used inside the prompt boxes. */
+.tp-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--color-brand-650);
+  margin-left: 3px;
+  vertical-align: -1px;
+  animation: tp-blink 1.1s steps(1) infinite;
+}
+
+/* Staggered entrance for hero elements. */
+.tp-rise {
+  animation: tp-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Interaction affordances. */
+.tp-btn {
+  transition: transform 0.18s ease, box-shadow 0.25s ease, background 0.2s ease;
+}
+.tp-btn:hover {
+  transform: translateY(-2px);
+}
+.tp-lift {
+  transition: transform 0.22s ease, box-shadow 0.28s ease, border-color 0.2s ease;
+}
+.tp-lift:hover {
+  transform: translateY(-4px);
+}
+.tp-chip {
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+.tp-chip:hover {
+  transform: translateY(-1px);
+}
+.tp-badge {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.tp-feat:hover .tp-badge {
+  transform: translateY(-3px) scale(1.05);
+}
+
+.tp-map-pulse {
+  animation: tp-map-pulse 2.6s ease-out infinite;
+}
+
+/* Respect users who prefer reduced motion — kill the looping/entrance motion
+   and hover translations, keep everything legible and in place. */
+@media (prefers-reduced-motion: reduce) {
+  .tp-caret,
+  .tp-rise,
+  .tp-map-pulse,
+  .tp-btn,
+  .tp-lift,
+  .tp-chip,
+  .tp-badge {
+    animation: none !important;
+    transition: none !important;
+  }
+  .tp-btn:hover,
+  .tp-lift:hover,
+  .tp-chip:hover,
+  .tp-feat:hover .tp-badge {
+    transform: none !important;
+  }
 }
