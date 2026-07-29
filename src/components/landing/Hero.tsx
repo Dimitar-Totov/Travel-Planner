@@ -1,28 +1,38 @@
 import SiteNav from "@/components/site/SiteNav";
+import HeroGlobe from "./HeroGlobe";
 import PromptBox from "./PromptBox";
 
-const TEXTURE =
-  "radial-gradient(120% 85% at 82% -12%, rgba(126,196,235,.32), transparent 58%)," +
-  "radial-gradient(95% 75% at -8% 118%, rgba(201,138,47,.16), transparent 55%)," +
-  "repeating-linear-gradient(0deg, rgba(255,255,255,.045) 0 1px, transparent 1px 48px)," +
-  "repeating-linear-gradient(90deg, rgba(255,255,255,.045) 0 1px, transparent 1px 48px)";
+/** Softens the seam into the section below; paints over the canvas, under the copy. */
+const BOTTOM_FADE =
+  "linear-gradient(180deg,rgba(11,53,83,0) 0%,rgba(11,53,83,.55) 60%,#0b3553 100%)";
 
 export default function Hero() {
   return (
-    <div className="relative overflow-hidden bg-[linear-gradient(165deg,#1d5a80_0%,#164e73_46%,#103a58_100%)] text-[#e9f3f9]">
-      <div className="pointer-events-none absolute inset-0" style={{ background: TEXTURE }} />
+    <div className="relative min-h-[720px] overflow-hidden bg-[linear-gradient(180deg,#17567c_0%,#114a6d_42%,#0d3d5b_78%,#0b3553_100%)] text-[#e9f3f9] lg:min-h-[860px]">
+      <HeroGlobe />
+
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-[220px]"
+        style={{ background: BOTTOM_FADE }}
+      />
 
       <SiteNav variant="onDark" />
 
       <div className="relative mx-auto max-w-[860px] px-6 pb-[172px] pt-[52px] text-center sm:px-10">
 
-        <h1 className="tp-rise mt-[22px] text-[44px] font-extrabold leading-[1.02] tracking-[-.03em] text-white text-balance sm:text-[56px] lg:text-[66px]">
+        <h1
+          className="tp-rise mt-[22px] text-[44px] font-extrabold leading-[1.02] tracking-[-.03em] text-white text-balance sm:text-[56px] lg:text-[66px]"
+          style={{ textShadow: "0 2px 30px rgba(8,38,60,.45)" }}
+        >
           Your whole trip, planned
           <br />
           from <span className="font-serif font-medium italic">one sentence</span>.
         </h1>
 
-        <p className="tp-rise mx-auto mt-[22px] max-w-[600px] text-[17px] leading-[1.6] text-[#cadeeb] sm:text-[18.5px]">
+        <p
+          className="tp-rise mx-auto mt-[22px] max-w-[600px] text-[17px] leading-[1.6] text-[#cadeeb] sm:text-[18.5px]"
+          style={{ textShadow: "0 1px 16px rgba(8,38,60,.7)" }}
+        >
           Tell it where, how long, and your budget. Get back a mapped day-by-day route, real flights
           and stays, and a checklist tuned to your dates — in seconds.
         </p>
