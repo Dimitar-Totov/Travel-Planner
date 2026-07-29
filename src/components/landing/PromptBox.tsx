@@ -1,11 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SparkleIcon, ArrowRightIcon } from "@/components/icons";
+import { CHIPS } from "@/lib/chips";
 
 const EXAMPLE = "I have 5 days in Italy with a €1,000 budget";
-const CHIPS = ["Weekend in Lisbon", "10 days in Japan, mid-range", "Family week in Portugal"];
+
+const CHIP_GROUP_SIZE = 3;
+const CHIP_ROTATE_MS = 5000;
+
+/** Chunks CHIPS into fixed-size groups, dropping any short trailing remainder
+ *  so a rotation can never show fewer than `CHIP_GROUP_SIZE` chips. */
+function chunk<T>(items: readonly T[], size: number): T[][] {
+  const groups: T[][] = [];
+  for (let i = 0; i + size <= items.length; i += size) {
+    groups.push(items.slice(i, i + size));
+  }
+  return groups;
+}
+
+const CHIP_GROUPS = chunk(CHIPS, CHIP_GROUP_SIZE);
 
 /**
  * The hero's prompt — a real, editable search box styled to match the design.
@@ -15,6 +30,37 @@ const CHIPS = ["Weekend in Lisbon", "10 days in Japan, mid-range", "Family week 
 export default function PromptBox() {
   const router = useRouter();
   const [value, setValue] = useState("");
+  const [groupIndex, setGroupIndex] = useState(0);
+
+  // Auto-rotate the example chips every 5s, one full group at a time — no
+  // manual controls. Paused for prefers-reduced-motion, same as the rest of
+  // the landing page's motion.
+  useEffect(() => {
+    if (CHIP_GROUPS.length <= 1) return;
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let id: ReturnType<typeof setInterval> | null = null;
+
+    const sync = () => {
+      if (id !== null) {
+        clearInterval(id);
+        id = null;
+      }
+      if (!motion.matches) {
+        id = setInterval(() => {
+          setGroupIndex((i) => (i + 1) % CHIP_GROUPS.length);
+        }, CHIP_ROTATE_MS);
+      }
+    };
+
+    sync();
+    motion.addEventListener("change", sync);
+    return () => {
+      if (id !== null) clearInterval(id);
+      motion.removeEventListener("change", sync);
+    };
+  }, []);
+
+  const chips = CHIP_GROUPS[groupIndex] ?? [];
 
   function planFor(query: string) {
     const q = query.trim() || EXAMPLE;
@@ -65,8 +111,12 @@ export default function PromptBox() {
         </button>
       </form>
 
-      <div className="mt-[18px] flex flex-wrap justify-center gap-2.5">
-        {CHIPS.map((chip) => (
+      <div
+        key={groupIndex}
+        className="mt-[18px] flex flex-wrap justify-center gap-2.5"
+        style={{ animation: "pb-fade .5s ease-out both" }}
+      >
+        {chips.map((chip) => (
           <button
             key={chip}
             type="button"
