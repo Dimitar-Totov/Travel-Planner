@@ -75,6 +75,9 @@ export default function RouteMap({
         attributionControl={false}
         scrollZoom
         dragRotate={false}
+        onError={(event) => {
+          console.warn("Map tile request failed", event.error);
+        }}
       >
         <NavigationControl position="bottom-right" />
         <Source id="route-line" type="geojson" data={routeGeoJSON}>
