@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SparkleIcon, ArrowRightIcon } from "@/components/icons";
 import { CHIPS } from "@/lib/chips";
@@ -9,6 +9,7 @@ const EXAMPLE = "I have 5 days in Italy with a €1,000 budget";
 
 const CHIP_GROUP_SIZE = 3;
 const CHIP_ROTATE_MS = 5000;
+const CHIP_RESUME_MS = 2500;
 
 /** Chunks CHIPS into fixed-size groups, dropping any short trailing remainder
  *  so a rotation can never show fewer than `CHIP_GROUP_SIZE` chips. */
@@ -31,12 +32,16 @@ export default function PromptBox() {
   const router = useRouter();
   const [value, setValue] = useState("");
   const [groupIndex, setGroupIndex] = useState(0);
+  const [rotationPaused, setRotationPaused] = useState(false);
+  const resumeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-rotate the example chips every 5s, one full group at a time — no
   // manual controls. Paused for prefers-reduced-motion, same as the rest of
-  // the landing page's motion.
+  // the landing page's motion, and while the user is hovering a chip
+  // (rotating the chips out from under a pointer that's aiming at one is
+  // worse than just freezing); resumes ~2.5s after the pointer leaves.
   useEffect(() => {
-    if (CHIP_GROUPS.length <= 1) return;
+    if (CHIP_GROUPS.length <= 1 || rotationPaused) return;
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
     let id: ReturnType<typeof setInterval> | null = null;
 
@@ -58,6 +63,14 @@ export default function PromptBox() {
       if (id !== null) clearInterval(id);
       motion.removeEventListener("change", sync);
     };
+  }, [rotationPaused]);
+
+  // Clear any pending resume timeout on unmount so it can't fire after the
+  // component is gone.
+  useEffect(() => {
+    return () => {
+      if (resumeTimeout.current !== null) clearTimeout(resumeTimeout.current);
+    };
   }, []);
 
   const chips = CHIP_GROUPS[groupIndex] ?? [];
@@ -65,6 +78,21 @@ export default function PromptBox() {
   function planFor(query: string) {
     const q = query.trim() || EXAMPLE;
     router.push(`/plan?q=${encodeURIComponent(q)}`);
+  }
+
+  function handleChipsMouseEnter() {
+    if (resumeTimeout.current !== null) {
+      clearTimeout(resumeTimeout.current);
+      resumeTimeout.current = null;
+    }
+    setRotationPaused(true);
+  }
+
+  function handleChipsMouseLeave() {
+    resumeTimeout.current = setTimeout(() => {
+      resumeTimeout.current = null;
+      setRotationPaused(false);
+    }, CHIP_RESUME_MS);
   }
 
   return (
@@ -113,6 +141,8 @@ export default function PromptBox() {
 
       <div
         key={groupIndex}
+        onMouseEnter={handleChipsMouseEnter}
+        onMouseLeave={handleChipsMouseLeave}
         className="mt-[18px] flex flex-wrap justify-center gap-2.5"
         style={{ animation: "pb-fade .5s ease-out both" }}
       >
