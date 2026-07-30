@@ -13,4 +13,13 @@ export const CHIPS = [
   "City break in Prague",
   "Long weekend in Reykjavik",
   "10 days in Istanbul",
+  "2 weeks in Thailand, backpacking",
+  "Weekend in Barcelona",
+  "5 days in Greece, island hopping",
+  "10 days in Vietnam",
+  "Family trip to Costa Rica",
+  "Long weekend in Amsterdam",
+  "A week in Bali on a budget",
+  "City break in Vienna",
+  "10 days in Peru",
 ] as const;
