@@ -263,7 +263,11 @@ interface KnownCity {
   lng: number;
 }
 
-/** Well-known cities we can plot precisely when no curated plan matches. */
+/**
+ * Well-known cities we can plot precisely when no curated plan matches. Each
+ * one doubles as the stand-in capital for its region, so a country-only query
+ * ("10 days in Vietnam") still lands somewhere real.
+ */
 const KNOWN_CITIES: KnownCity[] = [
   { name: "Paris", region: "France", lat: 48.8566, lng: 2.3522 },
   { name: "London", region: "United Kingdom", lat: 51.5074, lng: -0.1278 },
@@ -278,6 +282,7 @@ const KNOWN_CITIES: KnownCity[] = [
   { name: "Istanbul", region: "Turkey", lat: 41.0082, lng: 28.9784 },
   { name: "Marrakech", region: "Morocco", lat: 31.6295, lng: -7.9811 },
   { name: "Reykjavik", region: "Iceland", lat: 64.1466, lng: -21.9426 },
+  { name: "Hanoi", region: "Vietnam", lat: 21.0278, lng: 105.8342 },
 ];
 
 /** Fallback when no known city is mentioned in the query. */
@@ -287,10 +292,21 @@ function escapeForRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function matchesWord(query: string, word: string): boolean {
+  return new RegExp(`\\b${escapeForRegExp(word)}\\b`, "i").test(query);
+}
+
+/**
+ * Picks the city to plan around. City names win over regions across the whole
+ * list, so "5 days in Marrakech" and "5 days in Morocco" both resolve to
+ * Marrakech while an explicit city never loses to another entry's country.
+ */
 function detectCity(query: string): KnownCity {
   for (const city of KNOWN_CITIES) {
-    const pattern = new RegExp(`\\b${escapeForRegExp(city.name)}\\b`, "i");
-    if (pattern.test(query)) return city;
+    if (matchesWord(query, city.name)) return city;
+  }
+  for (const city of KNOWN_CITIES) {
+    if (matchesWord(query, city.region)) return city;
   }
   return DEFAULT_CITY;
 }
