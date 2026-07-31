@@ -1,16 +1,18 @@
 import type { NextRequest } from "next/server";
 import { getPlanForQuery } from "@/lib/plans";
+import { withAiRoute } from "@/lib/aiRoute";
 
 /**
- * Mock trip-planning endpoint — backs onto `getPlanForQuery`
- * (`src/lib/plans.ts`), a deterministic stand-in for a future real planning +
- * flights API. No datastore, no external calls.
+ * Trip-planning endpoint — backs onto `getPlanForQuery` (`src/lib/plans.ts`),
+ * a deterministic stand-in for a future real planning + flights API, then
+ * asks the `route-planner` agent to replace the mock route's cities with an
+ * AI-picked itinerary (falling back to the mock route on any failure).
  */
 
 /** GET /api/plan?q=<sentence> — sentence in the query string. */
 export async function GET(request: NextRequest): Promise<Response> {
   const query = request.nextUrl.searchParams.get("q") ?? "";
-  const plan = getPlanForQuery(query);
+  const plan = await withAiRoute(getPlanForQuery(query));
   return Response.json(plan, { status: 200 });
 }
 
@@ -33,6 +35,6 @@ export async function POST(request: NextRequest): Promise<Response> {
   const rawQuery = (body as Record<string, unknown>).query;
   const query = typeof rawQuery === "string" ? rawQuery : "";
 
-  const plan = getPlanForQuery(query);
+  const plan = await withAiRoute(getPlanForQuery(query));
   return Response.json(plan, { status: 200 });
 }
