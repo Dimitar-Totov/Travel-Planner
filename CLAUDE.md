@@ -4,6 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 @AGENTS.md
 
+## Tests
+ 
+DO NOT run any tests, developer will do that manually. If some tests are needed developer will write to you.
+
 ## Commands
 
 - `npm run dev` — start the dev server (http://localhost:3000, or the next free port)
@@ -29,9 +33,14 @@ shape into three routes:
 - `/` (`src/app/page.tsx`) — marketing landing page; statically renders the canonical
   Italy demo plan.
 - `/plan?q=<sentence>` (`src/app/plan/page.tsx`) — results page. Server component that
-  calls the planning layer directly (not via HTTP) and renders the same `PlanBoard`.
+  calls the planning layer directly (not via HTTP), overlays an AI-generated route via
+  `withAiRoute`, and renders the same `PlanBoard`.
 - `/api/plan` (`src/app/api/plan/route.ts`) — `GET ?q=` / `POST { query }` HTTP mirror of
-  the same planning layer, for non-page consumers.
+  the same planning layer (mock plan + `withAiRoute`), for non-page consumers.
+- `/api/ai/[agentId]` (`src/app/api/ai/[agentId]/route.ts`) — generic `POST` chat endpoint
+  over any agent in the OpenRouter registry; body is `{ messages: ChatMessage[] }`, the
+  agent's system prompt is injected server-side. Not currently used by any page — driven
+  from the client via the `useAgent` hook (`src/lib/hooks/useAgent.ts`).
 
 ### Data layer (`src/lib/`)
 
@@ -45,6 +54,35 @@ shape into three routes:
   back to `buildGenericPlan` (looks up a known city or defaults to Barcelona) for anything
   else. No network calls, no randomness — this is the seam a real planning/flights API will
   eventually replace.
+
+### AI layer (`src/lib/openrouter/`, `src/lib/aiRoute.ts`)
+
+All model calls go through [OpenRouter](https://openrouter.ai), configured via
+`OPENROUTER_API_KEY` / `OPENROUTER_BASE_URL` (see `.env.example`; copy to `.env.local`).
+
+- `openrouter/client.ts` — `createChatCompletion`, a thin stateless wrapper around
+  OpenRouter's `/chat/completions`. Throws `OpenRouterError` (carries an HTTP `status`) on
+  a missing key, network failure, non-2xx response, or a response with no message content.
+- `openrouter/types.ts` — `AgentConfig` (an agent's id/model/systemPrompt/temperature/
+  maxTokens/stream), `ChatMessage`, `AgentRequest`/`AgentResponse`.
+- `openrouter/agents/*.ts` — one file per agent, each exporting an `AgentConfig`. Adding an
+  agent = new file here + register it in `openrouter/registry.ts`'s `agentRegistry` map (the
+  map key doubles as the `/api/ai/[agentId]` route segment).
+  - `assistant` — general-purpose chat agent, no special parsing of its output.
+  - `route-planner` — given the trip sentence + day count, returns strict JSON
+    (`{"destination","cities":[{"name","lat","lng"}]}`) picking a real, logically-ordered
+    city sequence. Runs on a free reasoning model (`openai/gpt-oss-20b:free`) that burns
+    hidden reasoning tokens before the JSON, so `maxTokens` is set generously (2000) —
+    tightening it truncates the JSON and silently triggers the mock-route fallback below.
+- `aiRoute.ts` — `withAiRoute(plan)`: calls the `route-planner` agent, validates and parses
+  its JSON (`extractJson`, `isValidCity`, `isValidDestination`), converts the city list into
+  a `RoutePlan` (splitting the trip's days across stops, computing leg distances via
+  haversine), and overlays it onto `plan.route` — also correcting `plan.destination`/`title`
+  when the model's inferred destination disagrees with the mock backend's guess. Any
+  failure (missing key, network error, bad JSON, failed validation) resolves to the
+  original `plan` unchanged rather than throwing, so both `/plan` and `/api/plan` always
+  render — with the deterministic mock route as silent fallback. This is the one place in
+  the data layer that makes a network call; `plans.ts` stays pure on purpose.
 
 ### Component layout (`src/components/`)
 

@@ -1,7 +1,8 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { SpinnerIcon } from "@/components/icons";
 
 /** The four slots of the sentence the traveller is assembling. */
 type SlotId = "where" | "days" | "budget" | "style";
@@ -135,8 +136,21 @@ export default function SentenceBuilder() {
   const labelIdPrefix = useId();
   const [selection, setSelection] = useState<Selection>({});
 
+  // /plan waits on an AI-picked route before it can render, and this URL is
+  // never prefetched, so the CTA owns the feedback until /plan's loading.tsx
+  // takes over. See PromptBox for the same treatment on the hero search box.
+  const [isPending, startTransition] = useTransition();
+
   const chosenCount = GROUPS.filter((group) => selection[group.id] !== undefined).length;
   const ready = chosenCount >= READY_AT;
+
+  function planTrip() {
+    if (!ready || isPending) return;
+    const query = encodeURIComponent(buildQuery(selection));
+    startTransition(() => {
+      router.push(`/plan?q=${query}`);
+    });
+  }
 
   /** Chips are toggles, so tapping the chosen option again clears the slot. */
   function pick(slot: SlotId, key: string) {
@@ -248,17 +262,24 @@ export default function SentenceBuilder() {
         </p>
 
         <div className="mt-[26px] flex flex-col gap-2.5">
+          {/* `disabled` still guards the not-ready state; the pending state uses
+              aria-disabled so focus isn't ripped away mid-navigation. */}
           <button
             type="button"
             disabled={!ready}
-            onClick={() => router.push(`/plan?q=${encodeURIComponent(buildQuery(selection))}`)}
-            className={`rounded-[13px] px-[18px] py-[15px] text-[15px] font-bold ${
+            aria-disabled={isPending}
+            aria-busy={isPending}
+            onClick={planTrip}
+            className={`inline-flex items-center justify-center gap-2.5 rounded-[13px] px-[18px] py-[15px] text-[15px] font-bold ${
               ready
-                ? "tp-btn cursor-pointer bg-white text-[#0f4767] shadow-[0_12px_28px_rgba(4,26,42,.32)]"
+                ? "tp-btn bg-white text-[#0f4767] shadow-[0_12px_28px_rgba(4,26,42,.32)]"
                 : "cursor-default bg-white/16 text-[rgba(220,238,250,.55)]"
+            } ${ready && isPending ? "cursor-wait opacity-85" : ""} ${
+              ready && !isPending ? "cursor-pointer" : ""
             }`}
           >
-            {ready ? "Plan this trip" : "Pick a couple to continue"}
+            {isPending && <SpinnerIcon size={16} />}
+            {!ready ? "Pick a couple to continue" : isPending ? "Planning your trip…" : "Plan this trip"}
           </button>
           <div className="flex gap-2.5">
             <button

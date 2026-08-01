@@ -3,6 +3,7 @@ import SiteNav from "@/components/site/SiteNav";
 import SiteFooter from "@/components/site/SiteFooter";
 import PlanBoard from "@/components/planboard/PlanBoard";
 import { getPlanForQuery } from "@/lib/plans";
+import { withAiRoute } from "@/lib/aiRoute";
 import { italyPlan } from "@/lib/demo";
 
 export const metadata: Metadata = {
@@ -14,13 +15,15 @@ export const metadata: Metadata = {
  *
  * We call the planning data layer (`getPlanForQuery`) directly here — the
  * idiomatic Next server-component pattern — while the same data is also exposed
- * over HTTP at `/api/plan` for external/client consumers.
+ * over HTTP at `/api/plan` for external/client consumers. `withAiRoute` then
+ * asks the `route-planner` agent to replace the mock route's cities with an
+ * AI-picked itinerary, falling back to the mock route if that call fails.
  */
 export default async function PlanPage(props: PageProps<"/plan">) {
   const { q } = await props.searchParams;
   const raw = Array.isArray(q) ? q[0] : q;
   const query = raw?.trim() || italyPlan.query;
-  const plan = getPlanForQuery(query);
+  const plan = await withAiRoute(getPlanForQuery(query));
 
   return (
     <div className="flex min-h-screen flex-col bg-[#f4f7f9]">

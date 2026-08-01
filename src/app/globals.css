@@ -152,6 +152,199 @@ body {
   animation: tp-map-pulse 2.6s ease-out infinite;
 }
 
+/* Small indeterminate spinner for pending submit buttons. */
+@keyframes tp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.tp-spin {
+  animation: tp-spin 0.75s linear infinite;
+  transform-origin: center;
+}
+
+/* ---- /plan loading scene (src/app/plan/loading.tsx) --------------------- */
+/* The route line and the plane share one 5.2s loop and both run `linear`, so
+   they can never drift: the plane reaches stop 1..4 at 5 / 30 / 54 / 82% of
+   the loop and the dash offset uncovers the line up to that same stop at the
+   same percentages. The path is
+   "M150 420 L300 300 L470 330 L620 160" (~592 user units long); the offsets
+   below are 592 minus the cumulative segment lengths (192 / 365 / 592). */
+
+@keyframes lp-draw {
+  0% {
+    stroke-dashoffset: 592;
+    opacity: 0;
+  }
+  4% {
+    stroke-dashoffset: 592;
+    opacity: 1;
+  }
+  30% {
+    stroke-dashoffset: 400;
+  }
+  34% {
+    stroke-dashoffset: 400;
+  }
+  54% {
+    stroke-dashoffset: 227;
+  }
+  58% {
+    stroke-dashoffset: 227;
+  }
+  82% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  92% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+/* The plane reuses the brand paper-plane silhouette, which points north-east
+   at rest — hence every angle here is the segment's bearing plus 45deg. */
+@keyframes lp-plane {
+  0% {
+    transform: translate(150px, 420px) rotate(6deg);
+    opacity: 0;
+  }
+  5% {
+    transform: translate(150px, 420px) rotate(6deg);
+    opacity: 1;
+  }
+  30% {
+    transform: translate(300px, 300px) rotate(6deg);
+    opacity: 1;
+  }
+  34% {
+    transform: translate(300px, 300px) rotate(55deg);
+    opacity: 1;
+  }
+  54% {
+    transform: translate(470px, 330px) rotate(55deg);
+    opacity: 1;
+  }
+  58% {
+    transform: translate(470px, 330px) rotate(-4deg);
+    opacity: 1;
+  }
+  82% {
+    transform: translate(620px, 160px) rotate(-4deg);
+    opacity: 1;
+  }
+  92% {
+    transform: translate(620px, 160px) rotate(-4deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(620px, 160px) rotate(-4deg);
+    opacity: 0;
+  }
+}
+
+/* Stops sit dimmed until the plane lands on them, then pop. Each pin carries
+   its own `animation-delay` (= its arrival time) but shares this 5.2s period,
+   so every pin re-pops in lockstep with the route on every loop. */
+@keyframes lp-pin {
+  0% {
+    opacity: 0.3;
+    transform: scale(0.5);
+  }
+  5% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  9% {
+    transform: scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes lp-shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+
+/* Indeterminate bar for the checklist skeleton. */
+@keyframes lp-bar {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+/* One status line at a time: 5 lines x 20% of an 8s loop. */
+@keyframes lp-status {
+  0% {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  2.5% {
+    opacity: 1;
+    transform: none;
+  }
+  17.5% {
+    opacity: 1;
+    transform: none;
+  }
+  20% {
+    opacity: 0;
+    transform: translateY(-7px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+}
+
+.lp-draw {
+  stroke-dasharray: 592;
+  animation: lp-draw 5.2s linear infinite;
+}
+
+/* SVG transforms default to a `view-box` reference box, which would rotate the
+   plane and scale the pins around the middle of the whole map. `fill-box` puts
+   each element's own geometry back at the centre of its transform. */
+.lp-plane {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: lp-plane 5.2s linear infinite;
+}
+
+.lp-pin {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: lp-pin 5.2s ease-out infinite both;
+}
+
+.lp-shimmer {
+  background: linear-gradient(90deg, #e9eef3 0%, #f7fafc 45%, #e9eef3 90%);
+  background-size: 300% 100%;
+  animation: lp-shimmer 1.7s linear infinite;
+}
+
+.lp-bar {
+  animation: lp-bar 1.6s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+
+.lp-status {
+  animation: lp-status 8s ease-in-out infinite both;
+}
+
 /* Respect users who prefer reduced motion — kill the looping/entrance motion
    and hover translations, keep everything legible and in place. */
 @media (prefers-reduced-motion: reduce) {
@@ -161,7 +354,14 @@ body {
   .tp-btn,
   .tp-lift,
   .tp-chip,
-  .tp-badge {
+  .tp-badge,
+  .tp-spin,
+  .lp-draw,
+  .lp-plane,
+  .lp-pin,
+  .lp-shimmer,
+  .lp-bar,
+  .lp-status {
     animation: none !important;
     transition: none !important;
   }
@@ -169,6 +369,39 @@ body {
   .tp-lift:hover,
   .tp-chip:hover,
   .tp-feat:hover .tp-badge {
+    transform: none !important;
+  }
+
+  /* Static end-state for the loading scene: the full route drawn, every stop
+     placed, the plane parked at the destination, flat skeletons, and the
+     status lines as a plain stacked list instead of a rotating one. */
+  .lp-draw {
+    stroke-dashoffset: 0 !important;
+    opacity: 1 !important;
+  }
+  .lp-plane {
+    transform: translate(620px, 160px) rotate(-4deg) !important;
+    opacity: 1 !important;
+  }
+  .lp-pin {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .lp-shimmer {
+    background: #e9eef3 !important;
+  }
+  .lp-bar {
+    transform: none !important;
+  }
+  .lp-status-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    height: auto !important;
+  }
+  .lp-status {
+    position: static !important;
+    opacity: 1 !important;
     transform: none !important;
   }
 }
