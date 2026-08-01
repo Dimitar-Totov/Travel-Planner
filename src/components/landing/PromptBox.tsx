@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { SparkleIcon, ArrowRightIcon } from "@/components/icons";
+import { SparkleIcon, ArrowRightIcon, SpinnerIcon } from "@/components/icons";
 import { CHIPS } from "@/lib/chips";
 
 const EXAMPLE = "I have 5 days in Italy with a €1,000 budget";
@@ -35,13 +35,24 @@ export default function PromptBox() {
   const [rotationPaused, setRotationPaused] = useState(false);
   const resumeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // /plan renders an AI-picked route, so the navigation can take a couple of
+  // seconds. Its loading.tsx covers most of that, but it can only appear once
+  // the RSC request comes back — and this route is never prefetched (the query
+  // string is unique per submit). Driving router.push through a transition
+  // gives us an affordance for that first gap. `pendingChip` remembers which
+  // control started it, so the spinner shows up where the user clicked.
+  const [isPending, startTransition] = useTransition();
+  const [pendingChip, setPendingChip] = useState<string | null>(null);
+
   // Auto-rotate the example chips every 5s, one full group at a time — no
   // manual controls. Paused for prefers-reduced-motion, same as the rest of
   // the landing page's motion, and while the user is hovering a chip
   // (rotating the chips out from under a pointer that's aiming at one is
   // worse than just freezing); resumes ~2.5s after the pointer leaves.
+  // (Also frozen once a plan is on its way — rotating the chip that's mid-
+  // navigation out of the DOM would drop its spinner.)
   useEffect(() => {
-    if (CHIP_GROUPS.length <= 1 || rotationPaused) return;
+    if (CHIP_GROUPS.length <= 1 || rotationPaused || isPending) return;
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
     let id: ReturnType<typeof setInterval> | null = null;
 
@@ -63,7 +74,7 @@ export default function PromptBox() {
       if (id !== null) clearInterval(id);
       motion.removeEventListener("change", sync);
     };
-  }, [rotationPaused]);
+  }, [rotationPaused, isPending]);
 
   // Clear any pending resume timeout on unmount so it can't fire after the
   // component is gone.
@@ -75,9 +86,13 @@ export default function PromptBox() {
 
   const chips = CHIP_GROUPS[groupIndex] ?? [];
 
-  function planFor(query: string) {
+  function planFor(query: string, chip: string | null = null) {
+    if (isPending) return;
     const q = query.trim() || EXAMPLE;
-    router.push(`/plan?q=${encodeURIComponent(q)}`);
+    setPendingChip(chip);
+    startTransition(() => {
+      router.push(`/plan?q=${encodeURIComponent(q)}`);
+    });
   }
 
   function handleChipsMouseEnter() {
@@ -130,12 +145,23 @@ export default function PromptBox() {
             />
           </div>
         </div>
+        {/* aria-disabled rather than disabled: the click is already guarded in
+            planFor, and disabling a focused button would throw focus to
+            <body> right as the page starts to change under the user. */}
         <button
           type="submit"
-          className="tp-btn inline-flex w-full flex-none items-center justify-center gap-2.5 rounded-[14px] bg-[linear-gradient(150deg,#2f7fb0,#134a6f)] px-6 py-[15px] text-[15px] font-bold text-white shadow-[0_16px_30px_-14px_rgba(15,58,88,.9)] sm:w-auto"
+          aria-disabled={isPending}
+          aria-busy={isPending}
+          className={`tp-btn inline-flex w-full flex-none items-center justify-center gap-2.5 rounded-[14px] bg-[linear-gradient(150deg,#2f7fb0,#134a6f)] px-6 py-[15px] text-[15px] font-bold text-white shadow-[0_16px_30px_-14px_rgba(15,58,88,.9)] sm:w-auto ${
+            isPending ? "cursor-wait opacity-80" : ""
+          }`}
         >
-          Plan my trip
-          <ArrowRightIcon size={17} />
+          {isPending && pendingChip === null ? "Planning your trip…" : "Plan my trip"}
+          {isPending && pendingChip === null ? (
+            <SpinnerIcon size={17} />
+          ) : (
+            <ArrowRightIcon size={17} />
+          )}
         </button>
       </form>
 
@@ -146,16 +172,27 @@ export default function PromptBox() {
         className="mt-[18px] flex flex-wrap justify-center gap-2.5"
         style={{ animation: "pb-fade .5s ease-out both" }}
       >
-        {chips.map((chip) => (
-          <button
-            key={chip}
-            type="button"
-            onClick={() => planFor(chip)}
-            className="tp-chip cursor-pointer rounded-full border border-white/25 bg-white/10 px-[15px] py-2 text-[13px] font-medium text-[#e4f0f7] hover:bg-white/20"
-          >
-            {chip}
-          </button>
-        ))}
+        {chips.map((chip) => {
+          const chipPending = pendingChip === chip;
+          let state: string;
+          if (chipPending) state = "cursor-wait border-white/50 bg-white/25";
+          else if (isPending) state = "cursor-wait border-white/25 bg-white/10 opacity-60";
+          else state = "cursor-pointer border-white/25 bg-white/10 hover:bg-white/20";
+
+          return (
+            <button
+              key={chip}
+              type="button"
+              aria-disabled={isPending}
+              aria-busy={chipPending}
+              onClick={() => planFor(chip, chip)}
+              className={`tp-chip inline-flex items-center gap-2 rounded-full border px-[15px] py-2 text-[13px] font-medium text-[#e4f0f7] ${state}`}
+            >
+              {chipPending && <SpinnerIcon size={13} />}
+              {chip}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

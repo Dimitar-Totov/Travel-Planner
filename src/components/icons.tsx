@@ -85,6 +85,26 @@ export function SearchIcon(props: IconProps) {
   );
 }
 
+/** Indeterminate ring spinner. The arc spins via the shared `.tp-spin` class,
+ *  so `prefers-reduced-motion` leaves a legible static ring behind. */
+export function SpinnerIcon({ size = 16, strokeWidth = 2.6, ...rest }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      aria-hidden="true"
+      {...rest}
+    >
+      <circle cx="12" cy="12" r="9" opacity=".28" />
+      <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" className="tp-spin" />
+    </svg>
+  );
+}
+
 export function SparkleIcon({ size = 16, ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...rest}>
