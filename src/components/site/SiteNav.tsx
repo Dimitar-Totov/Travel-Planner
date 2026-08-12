@@ -8,7 +8,7 @@ import NavAccount, { NavAccountFallback } from "@/components/auth/NavAccount";
  *  same-route hash scroll, not a reload. */
 const LINKS = [
   { label: "Product", href: "/#how" },
-  { label: "Destinations", href: "/#how" },
+  { label: "Destinations", href: "/destinations" },
   { label: "How it works", href: "/#how" },
   { label: "Pricing", href: "/#cta" },
 ];
