@@ -19,22 +19,23 @@ export default function Hero() {
       <SiteNav variant="onDark" />
 
       <div className="relative mx-auto max-w-[860px] px-6 pb-[172px] pt-[52px] text-center sm:px-10">
-
         <h1
           className="tp-rise mt-[22px] text-[44px] font-extrabold leading-[1.02] tracking-[-.03em] text-white text-balance sm:text-[56px] lg:text-[66px]"
           style={{ textShadow: "0 2px 30px rgba(8,38,60,.45)" }}
         >
           Your whole trip, planned
           <br />
-          from <span className="font-serif font-medium italic">one sentence</span>.
+          from{" "}
+          <span className="font-serif font-medium italic">one sentence</span>.
         </h1>
 
         <p
           className="tp-rise mx-auto mt-[22px] max-w-[600px] text-[17px] leading-[1.6] text-[#cadeeb] sm:text-[18.5px]"
           style={{ textShadow: "0 1px 16px rgba(8,38,60,.7)" }}
         >
-          Tell it where, how long, and your budget. Get back a mapped day-by-day route, real flights
-          and stays, and a checklist tuned to your dates — in seconds.
+          Tell it where, how long, and your budget. Get back a mapped day-by-day
+          route, real flights and stays, and a checklist tuned to your dates —
+          in seconds.
         </p>
 
         <PromptBox />

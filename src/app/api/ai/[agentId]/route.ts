@@ -29,7 +29,7 @@ function parseMessages(body: unknown): ChatMessage[] | null {
 /** POST /api/ai/[agentId] with a `{ "messages": ChatMessage[] }` JSON body. */
 export async function POST(
   request: Request,
-  ctx: RouteContext<"/api/ai/[agentId]">
+  ctx: RouteContext<"/api/ai/[agentId]">,
 ): Promise<Response> {
   const { agentId } = await ctx.params;
   const agent = agentRegistry[agentId];
@@ -43,7 +43,7 @@ export async function POST(
   } catch {
     return Response.json(
       { error: "Request body must be valid JSON." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -54,7 +54,7 @@ export async function POST(
         error:
           'Request body must be shaped like { "messages": [{ "role": "system" | "user" | "assistant", "content": string }] }, with a non-empty messages array.',
       },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -72,13 +72,16 @@ export async function POST(
       console.error(`[api/ai/${agentId}]`, err.message);
       return Response.json(
         { error: "The model provider request failed.", status: err.status },
-        { status: err.status }
+        { status: err.status },
       );
     }
     console.error(`[api/ai/${agentId}]`, err);
     return Response.json(
-      { error: "Unexpected error while contacting the model provider.", status: 500 },
-      { status: 500 }
+      {
+        error: "Unexpected error while contacting the model provider.",
+        status: 500,
+      },
+      { status: 500 },
     );
   }
 }

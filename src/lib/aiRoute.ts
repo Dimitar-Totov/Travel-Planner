@@ -51,11 +51,18 @@ function isValidCity(value: unknown): value is AiCity {
 }
 
 function isValidDestination(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0 && value.trim().length <= 60;
+  return (
+    typeof value === "string" &&
+    value.trim().length > 0 &&
+    value.trim().length <= 60
+  );
 }
 
 /** Splits `totalDays` into `stopCount` contiguous day spans, e.g. [1,2] [3,4] [5]. */
-function splitDaySpans(totalDays: number, stopCount: number): Array<{ start: number; end: number }> {
+function splitDaySpans(
+  totalDays: number,
+  stopCount: number,
+): Array<{ start: number; end: number }> {
   const count = Math.max(1, Math.min(stopCount, totalDays));
   const base = Math.floor(totalDays / count);
   let remainder = totalDays - base * count;
@@ -78,13 +85,18 @@ function formatLabel(start: number, end: number): string {
 
 const EARTH_RADIUS_KM = 6371;
 
-function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+function haversineKm(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+): number {
   const toRad = (deg: number) => (deg * Math.PI) / 180;
   const dLat = toRad(b.lat - a.lat);
   const dLng = toRad(b.lng - a.lng);
   const lat1 = toRad(a.lat);
   const lat2 = toRad(b.lat);
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
   return Math.round(2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h))));
 }
 
@@ -103,7 +115,10 @@ export interface AiRouteResult {
  * matching it instead of the traveller's actual request. Returns `null` on
  * any failure.
  */
-export async function getAiRoute(query: string, days: number): Promise<AiRouteResult | null> {
+export async function getAiRoute(
+  query: string,
+  days: number,
+): Promise<AiRouteResult | null> {
   const agent = agentRegistry["route-planner"];
   if (!agent) return null;
 
@@ -124,33 +139,46 @@ export async function getAiRoute(query: string, days: number): Promise<AiRouteRe
 
     const parsed = extractJson(response.content);
     if (typeof parsed !== "object" || parsed === null) {
-      console.warn("[aiRoute] could not parse JSON from route-planner response:", response.content);
+      console.warn(
+        "[aiRoute] could not parse JSON from route-planner response:",
+        response.content,
+      );
       return null;
     }
 
     const record = parsed as Record<string, unknown>;
     const cities = record.cities;
     if (!Array.isArray(cities) || cities.length === 0) {
-      console.warn("[aiRoute] route-planner response had no cities array:", parsed);
+      console.warn(
+        "[aiRoute] route-planner response had no cities array:",
+        parsed,
+      );
       return null;
     }
 
     const validCities = cities.filter(isValidCity).slice(0, 5);
     if (validCities.length === 0) {
-      console.warn("[aiRoute] route-planner cities all failed validation:", cities);
+      console.warn(
+        "[aiRoute] route-planner cities all failed validation:",
+        cities,
+      );
       return null;
     }
 
-    const destination = isValidDestination(record.destination) ? record.destination.trim() : null;
+    const destination = isValidDestination(record.destination)
+      ? record.destination.trim()
+      : null;
 
     const spans = splitDaySpans(days, validCities.length);
-    const stops: RouteStop[] = validCities.slice(0, spans.length).map((city, i) => ({
-      name: city.name,
-      label: formatLabel(spans[i].start, spans[i].end),
-      lat: city.lat,
-      lng: city.lng,
-      overnight: true,
-    }));
+    const stops: RouteStop[] = validCities
+      .slice(0, spans.length)
+      .map((city, i) => ({
+        name: city.name,
+        label: formatLabel(spans[i].start, spans[i].end),
+        lat: city.lat,
+        lng: city.lng,
+        overnight: true,
+      }));
 
     let distanceKm = 0;
     for (let i = 1; i < stops.length; i++) {
@@ -166,7 +194,10 @@ export async function getAiRoute(query: string, days: number): Promise<AiRouteRe
       destination,
     };
   } catch (err) {
-    console.warn("[aiRoute] route-planner call failed, falling back to mock route:", err);
+    console.warn(
+      "[aiRoute] route-planner call failed, falling back to mock route:",
+      err,
+    );
     return null;
   }
 }
@@ -188,6 +219,8 @@ export async function withAiRoute(plan: Plan): Promise<Plan> {
     ...plan,
     route: result.route,
     destination,
-    title: destinationChanged ? `Your ${plan.days}-day ${destination} plan` : plan.title,
+    title: destinationChanged
+      ? `Your ${plan.days}-day ${destination} plan`
+      : plan.title,
   };
 }

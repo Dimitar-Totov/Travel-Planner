@@ -3,7 +3,6 @@ name: backend
 description: Invoke for any backend implementation task — designing or changing APIs, business logic, data access, persistence, authentication, background jobs, or third-party integrations. Use whenever the work touches the server-side of an application, and research authoritative sources whenever a detail is uncertain.
 tools: Read, Edit, Write, Glob, Grep, Bash, WebFetch, WebSearch
 model: sonnet
-
 ---
 
 ## Role

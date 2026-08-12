@@ -124,25 +124,36 @@ body {
 
 /* Interaction affordances. */
 .tp-btn {
-  transition: transform 0.18s ease, box-shadow 0.25s ease, background 0.2s ease;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.25s ease,
+    background 0.2s ease;
 }
 .tp-btn:hover {
   transform: translateY(-2px);
 }
 .tp-lift {
-  transition: transform 0.22s ease, box-shadow 0.28s ease, border-color 0.2s ease;
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.28s ease,
+    border-color 0.2s ease;
 }
 .tp-lift:hover {
   transform: translateY(-4px);
 }
 .tp-chip {
-  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
 }
 .tp-chip:hover {
   transform: translateY(-1px);
 }
 .tp-badge {
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
 }
 .tp-feat:hover .tp-badge {
   transform: translateY(-3px) scale(1.05);

@@ -46,8 +46,12 @@ export default function Features() {
               <span className="tp-badge inline-flex h-14 w-14 items-center justify-center rounded-full bg-[radial-gradient(120%_120%_at_30%_22%,#4a97c6,#123f5e)] text-white shadow-[0_14px_30px_-16px_rgba(18,73,110,.95),inset_0_1px_0_rgba(255,255,255,.3)]">
                 {f.icon}
               </span>
-              <h3 className="mt-5 text-[17.5px] font-bold tracking-[-.01em] text-ink">{f.title}</h3>
-              <p className="mt-[9px] text-[14px] leading-[1.55] text-muted">{f.body}</p>
+              <h3 className="mt-5 text-[17.5px] font-bold tracking-[-.01em] text-ink">
+                {f.title}
+              </h3>
+              <p className="mt-[9px] text-[14px] leading-[1.55] text-muted">
+                {f.body}
+              </p>
             </div>
           ))}
         </div>

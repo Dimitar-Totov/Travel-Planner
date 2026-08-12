@@ -22,13 +22,19 @@ export async function POST(request: NextRequest): Promise<Response> {
   try {
     body = await request.json();
   } catch {
-    return Response.json({ error: "Request body must be valid JSON." }, { status: 400 });
+    return Response.json(
+      { error: "Request body must be valid JSON." },
+      { status: 400 },
+    );
   }
 
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
     return Response.json(
-      { error: 'Request body must be a JSON object shaped like { "query": string }.' },
-      { status: 400 }
+      {
+        error:
+          'Request body must be a JSON object shaped like { "query": string }.',
+      },
+      { status: 400 },
     );
   }
 

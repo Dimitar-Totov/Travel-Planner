@@ -22,9 +22,27 @@ export const italyPlan: Plan = {
     summary: "Rome → Florence → Venice",
     distanceKm: 512,
     stops: [
-      { name: "Rome", label: "Days 1–2", lat: 41.9028, lng: 12.4964, overnight: true },
-      { name: "Florence", label: "Days 3–4", lat: 43.7696, lng: 11.2558, overnight: true },
-      { name: "Venice", label: "Day 5", lat: 45.4408, lng: 12.3155, overnight: true },
+      {
+        name: "Rome",
+        label: "Days 1–2",
+        lat: 41.9028,
+        lng: 12.4964,
+        overnight: true,
+      },
+      {
+        name: "Florence",
+        label: "Days 3–4",
+        lat: 43.7696,
+        lng: 11.2558,
+        overnight: true,
+      },
+      {
+        name: "Venice",
+        label: "Day 5",
+        lat: 45.4408,
+        lng: 12.3155,
+        overnight: true,
+      },
     ],
   },
   flights: {
