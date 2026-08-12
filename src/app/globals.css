@@ -36,6 +36,7 @@
   --color-gold: #c9a15a;
   --color-gold-2: #c69a3a;
   --color-success: #2c8b5f;
+  --color-danger: #c0453f;
 }
 
 body {
@@ -356,6 +357,23 @@ body {
   animation: lp-status 8s ease-in-out infinite both;
 }
 
+/* ---- Auth pages (src/app/(auth)) ---------------------------------------- */
+/* World-clock ticker. The track renders the clock list twice, so translating it
+   by exactly -50% lands copy two where copy one started — the loop restarts on
+   an identical frame and the seam is invisible. Slow on purpose: this is quiet
+   ambient chrome sitting under a sign-in form, not something to read. */
+@keyframes tp-ticker {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.tp-ticker {
+  animation: tp-ticker 80s linear infinite;
+}
+
 /* Respect users who prefer reduced motion — kill the looping/entrance motion
    and hover translations, keep everything legible and in place. */
 @media (prefers-reduced-motion: reduce) {
@@ -367,6 +385,9 @@ body {
   .tp-chip,
   .tp-badge,
   .tp-spin,
+  /* WorldClock also drops to a short, static subset of cities when this
+     matches, so the stopped track still fits on one line. */
+  .tp-ticker,
   .lp-draw,
   .lp-plane,
   .lp-pin,

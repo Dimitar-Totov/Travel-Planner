@@ -38,7 +38,13 @@ type MeshNode = { v: Vec3; seed: number };
 type Edge = readonly [number, number];
 type Arc = { a: Vec3; b: Vec3; phase: number };
 
-type Scene = { dots: Dot[]; cols: number; nodes: MeshNode[]; edges: Edge[]; arcs: Arc[] };
+type Scene = {
+  dots: Dot[];
+  cols: number;
+  nodes: MeshNode[];
+  edges: Edge[];
+  arcs: Arc[];
+};
 type Config = {
   gridHold: number;
   globeHold: number;
@@ -46,6 +52,7 @@ type Config = {
   density: number;
   routes: boolean;
   accent: Rgb;
+  scale: number;
 };
 
 const ACCENT = "#f0c68f";
@@ -65,32 +72,237 @@ const MAX_STEP = 0.1;
 
 /** Coarse land mask: per latitude band, the longitude spans that are land. */
 const LAND: readonly LandBand[] = [
-  { lat: 82, spans: [[-105, -18], [8, 30], [50, 105]] },
-  { lat: 77, spans: [[-125, -18], [50, 65], [88, 112]] },
-  { lat: 72, spans: [[-135, -20], [18, 35], [60, 180]] },
-  { lat: 67, spans: [[-168, -60], [-50, -20], [-25, -14], [10, 180]] },
-  { lat: 62, spans: [[-170, -58], [-50, -42], [-23, -14], [4, 180]] },
-  { lat: 57, spans: [[-168, -56], [-8, 0], [5, 180]] },
-  { lat: 52, spans: [[-172, -152], [-133, -55], [-10, 2], [3, 145], [152, 163]] },
-  { lat: 47, spans: [[-126, -55], [-5, 40], [40, 135], [139, 146]] },
-  { lat: 42, spans: [[-125, -69], [-10, 45], [45, 128], [131, 145]] },
-  { lat: 37, spans: [[-123, -75], [-10, 45], [45, 122], [126, 142]] },
-  { lat: 32, spans: [[-120, -79], [-10, 35], [35, 122], [128, 136]] },
-  { lat: 27, spans: [[-115, -80], [-14, 35], [35, 122]] },
-  { lat: 22, spans: [[-110, -96], [-85, -74], [-17, 37], [38, 58], [60, 122]] },
-  { lat: 17, spans: [[-106, -88], [-88, -61], [-17, 40], [42, 58], [70, 108], [120, 125]] },
-  { lat: 12, spans: [[-95, -82], [-75, -60], [-16, 48], [74, 81], [95, 110], [120, 126]] },
-  { lat: 7, spans: [[-83, -60], [-12, 46], [79, 82], [97, 107], [120, 126]] },
-  { lat: 2, spans: [[-80, -50], [8, 44], [95, 119]] },
-  { lat: -3, spans: [[-80, -35], [10, 42], [98, 126], [131, 150]] },
-  { lat: -8, spans: [[-78, -35], [12, 40], [104, 116], [122, 128], [132, 150]] },
-  { lat: -13, spans: [[-76, -38], [13, 40], [126, 142]] },
-  { lat: -18, spans: [[-72, -38], [12, 36], [43, 49], [118, 147]] },
-  { lat: -23, spans: [[-71, -40], [12, 35], [43, 48], [113, 152]] },
-  { lat: -28, spans: [[-72, -48], [15, 32], [113, 153]] },
-  { lat: -33, spans: [[-72, -53], [17, 31], [115, 152]] },
-  { lat: -38, spans: [[-73, -57], [140, 149], [172, 178]] },
-  { lat: -43, spans: [[-74, -65], [145, 148], [167, 175]] },
+  {
+    lat: 82,
+    spans: [
+      [-105, -18],
+      [8, 30],
+      [50, 105],
+    ],
+  },
+  {
+    lat: 77,
+    spans: [
+      [-125, -18],
+      [50, 65],
+      [88, 112],
+    ],
+  },
+  {
+    lat: 72,
+    spans: [
+      [-135, -20],
+      [18, 35],
+      [60, 180],
+    ],
+  },
+  {
+    lat: 67,
+    spans: [
+      [-168, -60],
+      [-50, -20],
+      [-25, -14],
+      [10, 180],
+    ],
+  },
+  {
+    lat: 62,
+    spans: [
+      [-170, -58],
+      [-50, -42],
+      [-23, -14],
+      [4, 180],
+    ],
+  },
+  {
+    lat: 57,
+    spans: [
+      [-168, -56],
+      [-8, 0],
+      [5, 180],
+    ],
+  },
+  {
+    lat: 52,
+    spans: [
+      [-172, -152],
+      [-133, -55],
+      [-10, 2],
+      [3, 145],
+      [152, 163],
+    ],
+  },
+  {
+    lat: 47,
+    spans: [
+      [-126, -55],
+      [-5, 40],
+      [40, 135],
+      [139, 146],
+    ],
+  },
+  {
+    lat: 42,
+    spans: [
+      [-125, -69],
+      [-10, 45],
+      [45, 128],
+      [131, 145],
+    ],
+  },
+  {
+    lat: 37,
+    spans: [
+      [-123, -75],
+      [-10, 45],
+      [45, 122],
+      [126, 142],
+    ],
+  },
+  {
+    lat: 32,
+    spans: [
+      [-120, -79],
+      [-10, 35],
+      [35, 122],
+      [128, 136],
+    ],
+  },
+  {
+    lat: 27,
+    spans: [
+      [-115, -80],
+      [-14, 35],
+      [35, 122],
+    ],
+  },
+  {
+    lat: 22,
+    spans: [
+      [-110, -96],
+      [-85, -74],
+      [-17, 37],
+      [38, 58],
+      [60, 122],
+    ],
+  },
+  {
+    lat: 17,
+    spans: [
+      [-106, -88],
+      [-88, -61],
+      [-17, 40],
+      [42, 58],
+      [70, 108],
+      [120, 125],
+    ],
+  },
+  {
+    lat: 12,
+    spans: [
+      [-95, -82],
+      [-75, -60],
+      [-16, 48],
+      [74, 81],
+      [95, 110],
+      [120, 126],
+    ],
+  },
+  {
+    lat: 7,
+    spans: [
+      [-83, -60],
+      [-12, 46],
+      [79, 82],
+      [97, 107],
+      [120, 126],
+    ],
+  },
+  {
+    lat: 2,
+    spans: [
+      [-80, -50],
+      [8, 44],
+      [95, 119],
+    ],
+  },
+  {
+    lat: -3,
+    spans: [
+      [-80, -35],
+      [10, 42],
+      [98, 126],
+      [131, 150],
+    ],
+  },
+  {
+    lat: -8,
+    spans: [
+      [-78, -35],
+      [12, 40],
+      [104, 116],
+      [122, 128],
+      [132, 150],
+    ],
+  },
+  {
+    lat: -13,
+    spans: [
+      [-76, -38],
+      [13, 40],
+      [126, 142],
+    ],
+  },
+  {
+    lat: -18,
+    spans: [
+      [-72, -38],
+      [12, 36],
+      [43, 49],
+      [118, 147],
+    ],
+  },
+  {
+    lat: -23,
+    spans: [
+      [-71, -40],
+      [12, 35],
+      [43, 48],
+      [113, 152],
+    ],
+  },
+  {
+    lat: -28,
+    spans: [
+      [-72, -48],
+      [15, 32],
+      [113, 153],
+    ],
+  },
+  {
+    lat: -33,
+    spans: [
+      [-72, -53],
+      [17, 31],
+      [115, 152],
+    ],
+  },
+  {
+    lat: -38,
+    spans: [
+      [-73, -57],
+      [140, 149],
+      [172, 178],
+    ],
+  },
+  {
+    lat: -43,
+    spans: [
+      [-74, -65],
+      [145, 148],
+      [167, 175],
+    ],
+  },
   { lat: -48, spans: [[-75, -67]] },
   { lat: -53, spans: [[-75, -68]] },
   { lat: -63, spans: [[-65, -55]] },
@@ -132,7 +344,11 @@ function landAt(latDeg: number, lonDeg: number): boolean {
 function vec(latDeg: number, lonDeg: number): Vec3 {
   const la = (latDeg * Math.PI) / 180;
   const lo = (lonDeg * Math.PI) / 180;
-  return [Math.cos(la) * Math.sin(lo), Math.sin(la), Math.cos(la) * Math.cos(lo)];
+  return [
+    Math.cos(la) * Math.sin(lo),
+    Math.sin(la),
+    Math.cos(la) * Math.cos(lo),
+  ];
 }
 
 function ease(x: number): number {
@@ -192,7 +408,8 @@ function buildScene(density: number): Scene {
         for (let k = 0; k < 3; k++) {
           const la = lat + (Math.random() - 0.5) * stepLat * 0.9;
           const lo = lon + (Math.random() - 0.5) * stepLon * 0.9;
-          if (!landAt((la * 180) / Math.PI, (lo * 180) / Math.PI - 180)) continue;
+          if (!landAt((la * 180) / Math.PI, (lo * 180) / Math.PI - 180))
+            continue;
           dot.sub.push({ lon: lo, cl: Math.cos(la), sl: Math.sin(la) });
         }
       }
@@ -207,7 +424,10 @@ function buildScene(density: number): Scene {
     const y = 1 - (i / (NODE_COUNT - 1)) * 2;
     const ring = Math.sqrt(Math.max(0, 1 - y * y));
     const th = golden * i;
-    nodes.push({ v: [Math.cos(th) * ring, y, Math.sin(th) * ring], seed: Math.random() });
+    nodes.push({
+      v: [Math.cos(th) * ring, y, Math.sin(th) * ring],
+      seed: Math.random(),
+    });
   }
 
   const edges: Edge[] = [];
@@ -247,11 +467,14 @@ function drawScene(
   const p = el % cycle;
   let t: number;
   if (p < cfg.gridHold) t = 0;
-  else if (p < cfg.gridHold + cfg.morph) t = ease((p - cfg.gridHold) / cfg.morph);
+  else if (p < cfg.gridHold + cfg.morph)
+    t = ease((p - cfg.gridHold) / cfg.morph);
   else if (p < cfg.gridHold + cfg.morph + cfg.globeHold) t = 1;
   else t = 1 - ease((p - cfg.gridHold - cfg.morph - cfg.globeHold) / cfg.morph);
 
-  const R = Math.max(150, Math.min(w * 0.25, h * 0.31, 320));
+  // `scale` multiplies the finished radius rather than feeding into the clamp,
+  // so the viewport-fit rules stay exactly as tuned and only the result grows.
+  const R = cfg.scale * Math.max(150, Math.min(w * 0.25, h * 0.31, 320));
   const cx = w / 2;
   const cy = h * 0.47;
   const ry = el * 0.3;
@@ -288,7 +511,14 @@ function drawScene(
     ctx.arc(cx, cy, R * 1.5, 0, Math.PI * 2);
     ctx.fill();
 
-    const body = ctx.createRadialGradient(cx - R * 0.2, cy - R * 0.25, R * 0.1, cx, cy, R);
+    const body = ctx.createRadialGradient(
+      cx - R * 0.2,
+      cy - R * 0.25,
+      R * 0.1,
+      cx,
+      cy,
+      R,
+    );
     body.addColorStop(0, `rgba(9,44,70,${(0.42 * t).toFixed(3)})`);
     body.addColorStop(0.75, `rgba(8,38,62,${(0.5 * t).toFixed(3)})`);
     body.addColorStop(1, `rgba(24,86,124,${(0.34 * t).toFixed(3)})`);
@@ -349,11 +579,18 @@ function drawScene(
     else ga = front ? 0.06 + depth * 0.1 : 0.015 + depth * 0.04;
     // Limb darkening: dots near the silhouette dim hard so the sphere reads round.
     const limb = Math.min(1, Math.max(0, (depth - 0.5) / 0.5));
-    if (front) ga *= pt.isLand ? (0.06 + 0.94 * limb) * (0.4 + 0.6 * limb) : 0.06 * limb + 0.94 * limb * limb * limb;
+    if (front)
+      ga *= pt.isLand
+        ? (0.06 + 0.94 * limb) * (0.4 + 0.6 * limb)
+        : 0.06 * limb + 0.94 * limb * limb * limb;
     else ga *= 0.5;
     a = a * (1 - tp) + ga * tp;
 
-    const gs = pt.hidden ? 0.6 : pt.isLand ? 2 + depth * 1.6 : 1.1 + depth * 0.5;
+    const gs = pt.hidden
+      ? 0.6
+      : pt.isLand
+        ? 2 + depth * 1.6
+        : 1.1 + depth * 0.5;
     const s = 2.1 * (1 - tp) + gs * tp;
     if (a <= 0.004 || s <= 0.15) continue;
 
@@ -374,7 +611,8 @@ function drawScene(
         if (sz3 < 0) continue;
         const sd = (sz3 / R + 1) / 2;
         const sl2 = Math.min(1, Math.max(0, (sd - 0.5) / 0.5));
-        const sa = (0.5 + sd * 0.5) * (0.06 + 0.94 * sl2) * (0.4 + 0.6 * sl2) * tp;
+        const sa =
+          (0.5 + sd * 0.5) * (0.06 + 0.94 * sl2) * (0.4 + 0.6 * sl2) * tp;
         if (sa < 0.02) continue;
         const spp = fov / (fov - sz3);
         const ss = 1.6 + sd * 1.2;
@@ -448,7 +686,10 @@ function drawScene(
       const arc = scene.arcs[k];
       const cosine = Math.max(
         -1,
-        Math.min(1, arc.a[0] * arc.b[0] + arc.a[1] * arc.b[1] + arc.a[2] * arc.b[2]),
+        Math.min(
+          1,
+          arc.a[0] * arc.b[0] + arc.a[1] * arc.b[1] + arc.a[2] * arc.b[2],
+        ),
       );
       const om = Math.acos(cosine);
       const so = Math.sin(om);
@@ -504,7 +745,9 @@ function drawScene(
   // large. `w * .26` only takes over again from ~1384px up; between there and
   // ~600px this runs up to ~30% wider than the design file, which is intended —
   // the globe is proportionally larger against the copy at those widths too.
-  const shR = Math.min(Math.max(w * 0.26, R * 1.35), 400);
+  // The cap scales with the globe as well, or it would stop tracking `R` the
+  // moment a scaled-up globe pushed past the unscaled 400px ceiling.
+  const shR = Math.min(Math.max(w * 0.26, R * 1.35), 400 * cfg.scale);
   const sh = ctx.createRadialGradient(w / 2, h * 0.4, 20, w / 2, h * 0.4, shR);
   sh.addColorStop(0, `rgba(15,68,101,${shA.toFixed(3)})`);
   sh.addColorStop(1, "rgba(15,68,101,0)");
@@ -523,6 +766,9 @@ type HeroGlobeProps = {
   density?: number;
   /** Draw the pulsing great-circle routes. */
   showRoutes?: boolean;
+  /** Multiplier on the fitted globe radius. 1 is the tuned hero size; the auth
+   *  pages run larger because there's no headline to make room for. */
+  scale?: number;
 };
 
 export default function HeroGlobe({
@@ -531,6 +777,7 @@ export default function HeroGlobe({
   globeSeconds = 8,
   density = 1,
   showRoutes = true,
+  scale = 1,
 }: HeroGlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // Survives effect re-runs so a prop change doesn't rewind the cycle.
@@ -549,6 +796,7 @@ export default function HeroGlobe({
       density,
       routes: showRoutes,
       accent: parseHex(accent),
+      scale: scale > 0 ? scale : 1,
     };
 
     let scene: Scene | null = null;
@@ -627,7 +875,8 @@ export default function HeroGlobe({
       measure();
       // Resize observations are processed after animation frame callbacks, so
       // drawing here while the loop runs would double every frame of a drag.
-      if (frame === null) render(motion.matches ? STATIC_ELAPSED : elapsedRef.current);
+      if (frame === null)
+        render(motion.matches ? STATIC_ELAPSED : elapsedRef.current);
     });
     resizeObserver.observe(canvas);
 
@@ -651,7 +900,7 @@ export default function HeroGlobe({
       intersectionObserver.disconnect();
       motion.removeEventListener("change", sync);
     };
-  }, [accent, gridSeconds, globeSeconds, density, showRoutes]);
+  }, [accent, gridSeconds, globeSeconds, density, showRoutes, scale]);
 
   return (
     <canvas

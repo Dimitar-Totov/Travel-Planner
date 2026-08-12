@@ -1,6 +1,12 @@
 import SiteNav from "@/components/site/SiteNav";
 import SiteFooter from "@/components/site/SiteFooter";
-import { BedIcon, CheckIcon, MapPinIcon, PlaneIcon, SpinnerIcon } from "@/components/icons";
+import {
+  BedIcon,
+  CheckIcon,
+  MapPinIcon,
+  PlaneIcon,
+  SpinnerIcon,
+} from "@/components/icons";
 
 /**
  * Instant-loading UI for /plan.
@@ -39,7 +45,15 @@ const STATUS_LINES: readonly string[] = [
 ];
 
 /** Shimmering placeholder for a value that hasn't arrived yet. */
-function Bar({ w, h = 10, className = "" }: { w: number | string; h?: number; className?: string }) {
+function Bar({
+  w,
+  h = 10,
+  className = "",
+}: {
+  w: number | string;
+  h?: number;
+  className?: string;
+}) {
   return (
     <span
       aria-hidden="true"
@@ -50,7 +64,13 @@ function Bar({ w, h = 10, className = "" }: { w: number | string; h?: number; cl
 }
 
 /** The card header rows are real text — only the data is missing. */
-function CardHeading({ icon, label }: { icon: React.ReactNode; label: string }) {
+function CardHeading({
+  icon,
+  label,
+}: {
+  icon: React.ReactNode;
+  label: string;
+}) {
   return (
     <span className="inline-flex items-center gap-2 text-[13px] font-bold text-ink">
       <span className="inline-flex h-6 w-6 items-center justify-center rounded-[7px] bg-[#eaf2f8] text-[#1c5b83]">
@@ -64,24 +84,27 @@ function CardHeading({ icon, label }: { icon: React.ReactNode; label: string }) 
 export default function PlanLoading() {
   return (
     <div className="flex min-h-screen flex-col bg-[#f4f7f9]">
-      <SiteNav variant="onLight" ctaHref="/" />
+      <SiteNav variant="onLight" />
 
       <main className="flex-1">
         <div className="mx-auto max-w-[1060px] px-4 py-9 sm:px-6 sm:py-12">
           {/* One polite announcement stands in for the whole decorative scene. */}
           <p role="status" className="sr-only">
-            Building your trip plan — charting your route, searching flights and stays, and packing
-            your checklist. This usually takes a few seconds.
+            Building your trip plan — charting your route, searching flights and
+            stays, and packing your checklist. This usually takes a few seconds.
           </p>
 
           <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
             <div className="min-w-0">
               <h1 className="mt-2 text-[24px] font-extrabold tracking-[-.02em] text-ink sm:text-[28px]">
                 Planning{" "}
-                <span className="font-serif font-normal italic tracking-normal">your trip</span>
+                <span className="font-serif font-normal italic tracking-normal">
+                  your trip
+                </span>
               </h1>
               <p className="mt-1 text-[14px] text-muted">
-                Turning your sentence into a route, flights, stays and a checklist.
+                Turning your sentence into a route, flights, stays and a
+                checklist.
               </p>
             </div>
           </div>
@@ -102,7 +125,11 @@ export default function PlanLoading() {
               <div className="flex flex-none items-center gap-2.5">
                 <span
                   className="inline-flex items-center gap-1.5 rounded-full border px-[11px] py-[5px] text-[12px] font-semibold"
-                  style={{ color: "#8a6d1f", background: "#fbf3df", borderColor: "#f0e2bd" }}
+                  style={{
+                    color: "#8a6d1f",
+                    background: "#fbf3df",
+                    borderColor: "#f0e2bd",
+                  }}
                 >
                   <span
                     className="inline-block h-1.5 w-1.5 rounded-full"
@@ -125,7 +152,9 @@ export default function PlanLoading() {
                     <span className="text-[12px] font-bold uppercase tracking-[.09em] text-[#5c6b76]">
                       Route &amp; map
                     </span>
-                    <span className="text-[11.5px] text-[#8b98a1]">plotting stops…</span>
+                    <span className="text-[11.5px] text-[#8b98a1]">
+                      plotting stops…
+                    </span>
                   </div>
 
                   <div
@@ -147,7 +176,13 @@ export default function PlanLoading() {
                         >
                           <circle cx="1.7" cy="1.7" r="1.7" fill="#c6d6e2" />
                         </pattern>
-                        <linearGradient id="lp-route-stroke" x1="0" y1="1" x2="1" y2="0">
+                        <linearGradient
+                          id="lp-route-stroke"
+                          x1="0"
+                          y1="1"
+                          x2="1"
+                          y2="0"
+                        >
                           <stop offset="0%" stopColor="#5ea8d3" />
                           <stop offset="100%" stopColor="#134a6f" />
                         </linearGradient>
@@ -193,8 +228,14 @@ export default function PlanLoading() {
                       />
 
                       {STOPS.map((stop) => (
-                        <g key={`${stop.x}-${stop.y}`} transform={`translate(${stop.x} ${stop.y})`}>
-                          <g className="lp-pin" style={{ animationDelay: stop.delay }}>
+                        <g
+                          key={`${stop.x}-${stop.y}`}
+                          transform={`translate(${stop.x} ${stop.y})`}
+                        >
+                          <g
+                            className="lp-pin"
+                            style={{ animationDelay: stop.delay }}
+                          >
                             <path
                               d="M0 0 C0 0 -11 -13 -11 -20 A11 11 0 1 1 11 -20 C11 -13 0 0 0 0 Z"
                               fill="#134a6f"
@@ -253,7 +294,10 @@ export default function PlanLoading() {
                   {/* FlightsCard skeleton */}
                   <div className="flex-1 rounded-2xl border border-line bg-white p-[15px]">
                     <div className="mb-3 flex items-center justify-between">
-                      <CardHeading icon={<PlaneIcon size={13} />} label="Flights" />
+                      <CardHeading
+                        icon={<PlaneIcon size={13} />}
+                        label="Flights"
+                      />
                       <span className="rounded-md bg-[#f1f4f7] px-2 py-[3px] text-[10.5px] font-semibold text-muted-2">
                         round trip
                       </span>
@@ -285,7 +329,10 @@ export default function PlanLoading() {
                   {/* ChecklistCard skeleton */}
                   <div className="flex-1 rounded-2xl border border-line bg-white p-[15px]">
                     <div className="mb-3 flex items-center justify-between">
-                      <CardHeading icon={<CheckIcon size={13} />} label="Travel checklist" />
+                      <CardHeading
+                        icon={<CheckIcon size={13} />}
+                        label="Travel checklist"
+                      />
                       <Bar w={28} h={9} />
                     </div>
 
@@ -298,7 +345,10 @@ export default function PlanLoading() {
 
                     <ul className="m-0 list-none p-0">
                       {["88%", "70%", "96%", "78%", "62%"].map((w) => (
-                        <li key={w} className="flex items-center gap-[9px] py-[5px]">
+                        <li
+                          key={w}
+                          className="flex items-center gap-[9px] py-[5px]"
+                        >
                           <span className="inline-flex h-[17px] w-[17px] flex-none rounded-[5px] border-[1.5px] border-[#cbd4da]" />
                           <Bar w={w} h={9} />
                         </li>
@@ -311,7 +361,10 @@ export default function PlanLoading() {
               {/* HotelsCard skeleton */}
               <div className="mt-3.5 rounded-2xl border border-line bg-white p-[15px]">
                 <div className="mb-[13px] flex items-center justify-between">
-                  <CardHeading icon={<BedIcon size={13} />} label="Where you’ll stay" />
+                  <CardHeading
+                    icon={<BedIcon size={13} />}
+                    label="Where you’ll stay"
+                  />
                   <Bar w={112} h={9} />
                 </div>
 
@@ -321,7 +374,10 @@ export default function PlanLoading() {
                       key={key}
                       className="overflow-hidden rounded-[13px] border border-[#eef1f5] bg-[#fbfcfd]"
                     >
-                      <div className="lp-shimmer h-[74px] w-full" aria-hidden="true" />
+                      <div
+                        className="lp-shimmer h-[74px] w-full"
+                        aria-hidden="true"
+                      />
                       <div className="flex flex-col gap-[7px] px-[11px] pb-3 pt-2.5">
                         <Bar w="80%" h={11} />
                         <Bar w="55%" h={8} />
