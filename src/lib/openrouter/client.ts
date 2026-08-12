@@ -32,7 +32,7 @@ interface OpenRouterChatCompletionResponse {
 
 /** Calls OpenRouter's `/chat/completions` endpoint. Stateless — reads env at call time. */
 export async function createChatCompletion(
-  params: ChatCompletionParams
+  params: ChatCompletionParams,
 ): Promise<AgentResponse> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   const baseUrl = process.env.OPENROUTER_BASE_URL;
@@ -69,7 +69,7 @@ export async function createChatCompletion(
   } catch (err) {
     throw new OpenRouterError(
       502,
-      `Failed to reach OpenRouter: ${err instanceof Error ? err.message : String(err)}`
+      `Failed to reach OpenRouter: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 
@@ -77,7 +77,7 @@ export async function createChatCompletion(
     const body = await res.text().catch(() => "");
     throw new OpenRouterError(
       res.status,
-      `OpenRouter request failed (${res.status}): ${body || res.statusText}`
+      `OpenRouter request failed (${res.status}): ${body || res.statusText}`,
     );
   }
 
@@ -85,7 +85,10 @@ export async function createChatCompletion(
   const content = data.choices?.[0]?.message?.content;
 
   if (typeof content !== "string") {
-    throw new OpenRouterError(502, "OpenRouter response did not contain a message.");
+    throw new OpenRouterError(
+      502,
+      "OpenRouter response did not contain a message.",
+    );
   }
 
   return {

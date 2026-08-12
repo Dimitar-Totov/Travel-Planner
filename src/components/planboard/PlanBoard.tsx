@@ -22,7 +22,9 @@ export default function PlanBoard({ plan }: { plan: Plan }) {
             <MapPinIcon size={15} />
           </span>
           <div className="min-w-0">
-            <div className="text-[14.5px] font-bold leading-none tracking-[-.01em]">{plan.title}</div>
+            <div className="text-[14.5px] font-bold leading-none tracking-[-.01em]">
+              {plan.title}
+            </div>
             <div className="mt-[3px] truncate font-mono text-[11.5px] text-[#7a8791]">
               &ldquo;{plan.query}&rdquo;
             </div>
@@ -33,8 +35,16 @@ export default function PlanBoard({ plan }: { plan: Plan }) {
             className="inline-flex items-center gap-1.5 rounded-full border px-[11px] py-[5px] text-[12px] font-semibold"
             style={
               ready
-                ? { color: "#2c8b5f", background: "#e9f6ef", borderColor: "#cceadb" }
-                : { color: "#8a6d1f", background: "#fbf3df", borderColor: "#f0e2bd" }
+                ? {
+                    color: "#2c8b5f",
+                    background: "#e9f6ef",
+                    borderColor: "#cceadb",
+                  }
+                : {
+                    color: "#8a6d1f",
+                    background: "#fbf3df",
+                    borderColor: "#f0e2bd",
+                  }
             }
           >
             <span
@@ -61,11 +71,17 @@ export default function PlanBoard({ plan }: { plan: Plan }) {
                 Route &amp; map
               </span>
               <span className="text-[11.5px] text-[#8b98a1]">
-                {plan.route.stops.length} stop{plan.route.stops.length === 1 ? "" : "s"}
-                {plan.route.distanceKm > 0 ? ` · ${plan.route.distanceKm} km` : ""}
+                {plan.route.stops.length} stop
+                {plan.route.stops.length === 1 ? "" : "s"}
+                {plan.route.distanceKm > 0
+                  ? ` · ${plan.route.distanceKm} km`
+                  : ""}
               </span>
             </div>
-            <div className="relative w-full flex-1 bg-[#e8eff4]" style={{ aspectRatio: "780 / 560" }}>
+            <div
+              className="relative w-full flex-1 bg-[#e8eff4]"
+              style={{ aspectRatio: "780 / 560" }}
+            >
               <RouteMap
                 route={plan.route}
                 days={plan.days}

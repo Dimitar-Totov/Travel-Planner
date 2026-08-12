@@ -18,7 +18,8 @@ export default function CtaBand() {
               <span className="font-serif font-medium italic">next?</span>
             </h2>
             <p className="mt-3.5 max-w-[440px] text-[17px] leading-[1.55] text-[#cadeeb]">
-              Type a sentence. Get the itinerary, map, and checklist before your coffee&rsquo;s cold.
+              Type a sentence. Get the itinerary, map, and checklist before your
+              coffee&rsquo;s cold.
             </p>
           </div>
           <a

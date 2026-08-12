@@ -96,9 +96,27 @@ const portugalPlan: Plan = {
     summary: "Lisbon → Sintra → Porto",
     distanceKm: 370,
     stops: [
-      { name: "Lisbon", label: "Days 1–3", lat: 38.7223, lng: -9.1393, overnight: true },
-      { name: "Sintra", label: "Day 4", lat: 38.7979, lng: -9.3906, overnight: true },
-      { name: "Porto", label: "Days 5–7", lat: 41.1579, lng: -8.6291, overnight: true },
+      {
+        name: "Lisbon",
+        label: "Days 1–3",
+        lat: 38.7223,
+        lng: -9.1393,
+        overnight: true,
+      },
+      {
+        name: "Sintra",
+        label: "Day 4",
+        lat: 38.7979,
+        lng: -9.3906,
+        overnight: true,
+      },
+      {
+        name: "Porto",
+        label: "Days 5–7",
+        lat: 41.1579,
+        lng: -8.6291,
+        overnight: true,
+      },
     ],
   },
   flights: {
@@ -168,9 +186,27 @@ const japanPlan: Plan = {
     summary: "Tokyo → Kyoto → Osaka",
     distanceKm: 510,
     stops: [
-      { name: "Tokyo", label: "Days 1–4", lat: 35.6762, lng: 139.6503, overnight: true },
-      { name: "Kyoto", label: "Days 5–7", lat: 35.0116, lng: 135.7681, overnight: true },
-      { name: "Osaka", label: "Days 8–10", lat: 34.6937, lng: 135.5023, overnight: true },
+      {
+        name: "Tokyo",
+        label: "Days 1–4",
+        lat: 35.6762,
+        lng: 139.6503,
+        overnight: true,
+      },
+      {
+        name: "Kyoto",
+        label: "Days 5–7",
+        lat: 35.0116,
+        lng: 135.7681,
+        overnight: true,
+      },
+      {
+        name: "Osaka",
+        label: "Days 8–10",
+        lat: 34.6937,
+        lng: 135.5023,
+        overnight: true,
+      },
     ],
   },
   flights: {
@@ -232,7 +268,7 @@ function withOverrides(
   base: Plan,
   query: string,
   parsedDays: number | undefined,
-  parsedBudget: number | undefined
+  parsedBudget: number | undefined,
 ): Plan {
   const days = parsedDays ?? base.days;
   const budget = parsedBudget ?? base.budget;
@@ -286,7 +322,12 @@ const KNOWN_CITIES: KnownCity[] = [
 ];
 
 /** Fallback when no known city is mentioned in the query. */
-const DEFAULT_CITY: KnownCity = { name: "Barcelona", region: "Spain", lat: 41.3874, lng: 2.1686 };
+const DEFAULT_CITY: KnownCity = {
+  name: "Barcelona",
+  region: "Spain",
+  lat: 41.3874,
+  lng: 2.1686,
+};
 
 function escapeForRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -314,7 +355,7 @@ function detectCity(query: string): KnownCity {
 function buildGenericPlan(
   query: string,
   parsedDays: number | undefined,
-  parsedBudget: number | undefined
+  parsedBudget: number | undefined,
 ): Plan {
   const days = parsedDays ?? 5;
   const budget = parsedBudget ?? 900;
@@ -352,7 +393,9 @@ function buildGenericPlan(
       gradient: "linear-gradient(150deg,#8fbf6f,#4f922f)",
     },
   ];
-  const avgHotel = Math.round(hotels.reduce((sum, hotel) => sum + hotel.price, 0) / hotels.length);
+  const avgHotel = Math.round(
+    hotels.reduce((sum, hotel) => sum + hotel.price, 0) / hotels.length,
+  );
 
   const route: RoutePlan = {
     summary: city.name,
@@ -379,7 +422,11 @@ function buildGenericPlan(
       carrier: "Skyline Air",
       price: Math.max(60, Math.round(budget * 0.12)),
     },
-    inbound: { from: city.name, to: "London", price: Math.max(50, Math.round(budget * 0.1)) },
+    inbound: {
+      from: city.name,
+      to: "London",
+      price: Math.max(50, Math.round(budget * 0.1)),
+    },
   };
 
   const checklist: ChecklistItem[] = [
@@ -427,7 +474,12 @@ export function getPlanForQuery(query: string): Plan {
     return withOverrides(italyPlan, effectiveQuery, parsedDays, parsedBudget);
   }
   if (PORTUGAL_PATTERN.test(effectiveQuery)) {
-    return withOverrides(portugalPlan, effectiveQuery, parsedDays, parsedBudget);
+    return withOverrides(
+      portugalPlan,
+      effectiveQuery,
+      parsedDays,
+      parsedBudget,
+    );
   }
   if (JAPAN_PATTERN.test(effectiveQuery)) {
     return withOverrides(japanPlan, effectiveQuery, parsedDays, parsedBudget);

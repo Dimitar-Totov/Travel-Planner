@@ -3,7 +3,12 @@ import type { SVGProps } from "react";
 
 type IconProps = SVGProps<SVGSVGElement> & { size?: number };
 
-function Stroke({ size = 18, strokeWidth = 2, children, ...rest }: IconProps & { children: React.ReactNode }) {
+function Stroke({
+  size = 18,
+  strokeWidth = 2,
+  children,
+  ...rest
+}: IconProps & { children: React.ReactNode }) {
   return (
     <svg
       width={size}
@@ -87,7 +92,11 @@ export function SearchIcon(props: IconProps) {
 
 /** Indeterminate ring spinner. The arc spins via the shared `.tp-spin` class,
  *  so `prefers-reduced-motion` leaves a legible static ring behind. */
-export function SpinnerIcon({ size = 16, strokeWidth = 2.6, ...rest }: IconProps) {
+export function SpinnerIcon({
+  size = 16,
+  strokeWidth = 2.6,
+  ...rest
+}: IconProps) {
   return (
     <svg
       width={size}
@@ -100,14 +109,25 @@ export function SpinnerIcon({ size = 16, strokeWidth = 2.6, ...rest }: IconProps
       {...rest}
     >
       <circle cx="12" cy="12" r="9" opacity=".28" />
-      <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" className="tp-spin" />
+      <path
+        d="M21 12a9 9 0 0 0-9-9"
+        strokeLinecap="round"
+        className="tp-spin"
+      />
     </svg>
   );
 }
 
 export function SparkleIcon({ size = 16, ...rest }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...rest}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      {...rest}
+    >
       <path d="M12 2c.3 4.2 3.8 7.7 8 8-4.2.3-7.7 3.8-8 8-.3-4.2-3.8-7.7-8-8 4.2-.3 7.7-3.8 8-8z" />
     </svg>
   );

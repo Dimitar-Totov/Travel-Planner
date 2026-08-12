@@ -2,7 +2,10 @@ import Link from "next/link";
 import { PlaneIcon } from "@/components/icons";
 
 const COLUMNS: { title: string; links: string[] }[] = [
-  { title: "Product", links: ["Itineraries", "Maps", "Flights & hotels", "Checklists"] },
+  {
+    title: "Product",
+    links: ["Itineraries", "Maps", "Flights & hotels", "Checklists"],
+  },
   { title: "Company", links: ["About", "Blog", "Careers"] },
   { title: "Legal", links: ["Privacy", "Terms"] },
 ];
@@ -34,7 +37,11 @@ export default function SiteFooter() {
                 </div>
                 <div className="mt-[15px] flex flex-col gap-2.5 text-[14px]">
                   {col.links.map((l) => (
-                    <a key={l} href="#" className="text-[#a9c4d4] hover:text-white">
+                    <a
+                      key={l}
+                      href="#"
+                      className="text-[#a9c4d4] hover:text-white"
+                    >
                       {l}
                     </a>
                   ))}

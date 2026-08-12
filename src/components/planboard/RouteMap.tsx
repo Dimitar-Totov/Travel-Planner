@@ -2,7 +2,13 @@
 
 import { useMemo } from "react";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Map, Layer, Marker, NavigationControl, Source } from "@vis.gl/react-maplibre";
+import {
+  Map,
+  Layer,
+  Marker,
+  NavigationControl,
+  Source,
+} from "@vis.gl/react-maplibre";
 import type { RoutePlan, RouteStop } from "@/lib/types";
 
 const MAP_STYLE = "https://demotiles.maplibre.org/style.json";
@@ -43,7 +49,9 @@ function buildRouteGeoJSON(stops: RouteStop[]) {
         properties: {},
         geometry: {
           type: "LineString" as const,
-          coordinates: stops.map((stop) => [stop.lng, stop.lat] as [number, number]),
+          coordinates: stops.map(
+            (stop) => [stop.lng, stop.lat] as [number, number],
+          ),
         },
       },
     ],
@@ -64,7 +72,10 @@ export default function RouteMap({
   mapShape?: "italy";
 }) {
   const viewState = useMemo(() => getViewState(route.stops), [route.stops]);
-  const routeGeoJSON = useMemo(() => buildRouteGeoJSON(route.stops), [route.stops]);
+  const routeGeoJSON = useMemo(
+    () => buildRouteGeoJSON(route.stops),
+    [route.stops],
+  );
 
   return (
     <div className="absolute inset-0 h-full w-full">
@@ -93,7 +104,12 @@ export default function RouteMap({
         </Source>
 
         {route.stops.map((stop) => (
-          <Marker key={stop.name} longitude={stop.lng} latitude={stop.lat} anchor="center">
+          <Marker
+            key={stop.name}
+            longitude={stop.lng}
+            latitude={stop.lat}
+            anchor="center"
+          >
             <div className="flex flex-col items-center">
               <div className="rounded-full border-2 border-white bg-[#17527a] p-1.5 shadow-[0_8px_18px_rgba(15,49,76,0.25)]">
                 <div className="h-2.5 w-2.5 rounded-full bg-white" />
@@ -127,7 +143,9 @@ export default function RouteMap({
         </div>
       </div>
       <div className="absolute bottom-2.5 right-3 font-mono text-[9.5px] lowercase tracking-[.02em] text-[#8a99a3]">
-        {route.distanceKm > 0 ? `${route.distanceKm} km · live map` : "live map"}
+        {route.distanceKm > 0
+          ? `${route.distanceKm} km · live map`
+          : "live map"}
       </div>
     </div>
   );

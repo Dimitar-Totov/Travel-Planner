@@ -4,9 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 @AGENTS.md
 
-## Tests
- 
-DO NOT run any tests, developer will do that manually. If some tests are needed developer will write to you.
+## Testing
+
+Do not run tests (npm test, npx playwright test, vitest, jest, etc.) automatically
+after implementing a feature or fixing a bug. Only run tests when explicitly asked to.
 
 ## Commands
 
@@ -41,6 +42,9 @@ shape into three routes:
   over any agent in the OpenRouter registry; body is `{ messages: ChatMessage[] }`, the
   agent's system prompt is injected server-side. Not currently used by any page — driven
   from the client via the `useAgent` hook (`src/lib/hooks/useAgent.ts`).
+
+Plus the auth routes — `/sign-in`, `/sign-up`, `/api/auth/[...nextauth]`, `POST /api/users`
+— described under "Auth" below.
 
 ### Data layer (`src/lib/`)
 
@@ -84,9 +88,85 @@ All model calls go through [OpenRouter](https://openrouter.ai), configured via
   render — with the deterministic mock route as silent fallback. This is the one place in
   the data layer that makes a network call; `plans.ts` stays pure on purpose.
 
+### Auth (`src/lib/auth.ts`, `src/proxy.ts`, `src/app/(auth)/`)
+
+Auth.js v5 (`next-auth@beta`) with a **Credentials** provider and the **JWT** session
+strategy — no database adapter; MongoDB is consulted inside `authorize()` and by the
+refresh-token layer below. Requires `AUTH_SECRET` (`npx auth secret`) on top of
+`MONGODB_URI`.
+
+- `lib/auth.ts` — the `NextAuth({...})` call, exporting `handlers`/`auth`/`signIn`/`signOut`.
+  `authorize()` looks the user up with `.select("+password")` (the field is `select: false`
+  by default) and bcrypt-compares against a dummy hash when no user matched, so an unknown
+  email and a wrong password are indistinguishable in both result and timing. The `jwt`/
+  `session` callbacks carry `id` + `username` onto `session.user`; there is **no** `name`
+  field — use `session.user.username`. Types come from `types/next-auth.d.ts`, which
+  augments `"next-auth"` and **`"@auth/core/jwt"`** (augmenting `"next-auth/jwt"` does not
+  merge — it's a type-only re-export).
+- Route protection is a single `PROTECTED_PATHS` array in `lib/auth.ts`, read by the
+  `authorized` callback. **It is intentionally empty** — `/`, `/plan`, `/api/plan` and
+  `/api/ai/*` are all anonymous-friendly. Add a path prefix there to protect a route.
+- `src/proxy.ts` — Next 16 renamed the `middleware.ts` convention to `proxy.ts`; this file
+  just re-exports `auth` as the default export. Its `matcher` excludes all of `/api/*`
+  (so Auth.js's own endpoints are never intercepted) and static assets.
+- `POST /api/users` — registration. 201 `{id,username,email,createdAt}`, 400
+  `{error,fields:{…}}`, 409 `{error}` (duplicate, caught from Mongo's `E11000` rather than a
+  racy pre-check), 500 `{error}`. Password hashing happens **only** in `User`'s `pre("save")`
+  hook (guarded by `isModified`) — never hash before calling `User.create`.
+
+#### Refresh tokens (`src/services/refreshTokens.ts`, `src/models/RefreshToken.ts`)
+
+The session cookie is the access credential: an Auth.js-encrypted **JWE** in an **HttpOnly**
+cookie carrying a 15-minute access window (`accessTokenExpires`) plus one opaque refresh
+token. Inside that window a session costs **zero** database queries; when it lapses the
+`jwt` callback exchanges the refresh token for a successor, which is also the point where a
+revoked session is noticed.
+
+- Refresh tokens are 256-bit CSPRNG values. Only their **SHA-256** hash is stored —
+  deliberately not bcrypt: there's no dictionary to defend against, and a deterministic hash
+  is what makes a unique-indexed single-query lookup possible.
+- Rotation is **single-use**. Every token carries a `family` id shared by the whole chain
+  back to the original sign-in; presenting a spent token after the grace window is treated as
+  replay and revokes the entire family (RFC 9700 §4.14.2).
+- `ROTATION_GRACE_MS` (2 min) is **load-bearing, not a nicety**. next-auth's RSC branch of
+  `auth()` throws away the `Set-Cookie` headers it gets back (it can't set cookies during
+  render — see `next-auth/src/lib/index.ts`), and `<Link>` prefetching fires concurrent
+  requests all still holding the pre-rotation cookie. Without the window every one of those
+  reads as replay and signs the user out. Rotation claims the parent atomically via
+  `findOneAndUpdate`, and losers of that race are handed the same successor.
+- Returning `null` from the `jwt` callback invalidates the session and clears the cookie —
+  that's the deliberate outcome when a refresh fails. A _database_ failure instead returns
+  the token unchanged so the next request retries, rather than signing out every user at once.
+- Sign-out must reach the database or the discarded cookie's token stays valid for 30 days;
+  `events.signOut` is the only hook with the decoded JWT, and it revokes the family.
+- Sessions minted before this layer existed have no `refreshToken` and are invalidated once.
+
+#### Validation (`src/lib/validation/auth.ts`)
+
+**Zod** owns every credential rule; nothing hand-rolls its own checks. One module feeds
+`POST /api/users` (`registerSchema`), `signInAction` and `authorize()` (`signInSchema` /
+`credentialsSchema`), and `SignUpForm`'s pre-flight — so client and server can't drift.
+It must stay free of server-only imports (mongoose, bcrypt, `node:crypto`) because client
+components import it. Notes: email is trimmed+lowercased **before** the format check, so
+normalisation is what prevents duplicate registrations; passwords are capped at 72 **bytes**
+because bcrypt silently ignores anything beyond that; and `signInSchema` deliberately does
+_not_ apply the strength rules — re-checking them at sign-in would lock out older passwords
+and leak that a guess was the right shape. `fieldErrorsOf` walks `error.issues` rather than
+`z.flattenError` (whose `fieldErrors` is untyped for a non-parameterized `ZodError`).
+
+- `src/app/(auth)/` — the `/sign-in` and `/sign-up` pages plus `actions.ts`. Sign-in runs
+  through the `signInAction` server action using `signIn(..., { redirect: false })`, which
+  still _throws_ `AuthError`/`CredentialsSignin` on bad credentials (it does not return an
+  error URL), so the failure path is a caught error, not a returned value. `?callbackUrl=`
+  is filtered to same-origin relative paths.
+- Session in the UI: read it server-side with `await auth()`. There is deliberately **no**
+  `<SessionProvider>`/`useSession` anywhere — `SiteNav`'s account slot is the async server
+  component `components/auth/NavAccount.tsx`, wrapped in `<Suspense>` so the rest of the nav
+  (and `plan/loading.tsx`, which also renders `SiteNav`) never blocks on the session cookie.
+
 ### Component layout (`src/components/`)
 
-Three groups, each consumed by a specific layer above:
+Four groups, each consumed by a specific layer above:
 
 - `landing/` — `Hero`, `HeroGlobe`, `PromptBox`, `Features`, `CtaBand`. `PromptBox` is the
   only client component on `/`; submitting or picking a chip does `router.push("/plan?q=…")`.
@@ -101,8 +181,18 @@ Three groups, each consumed by a specific layer above:
   (`Plan.mapShape`, e.g. `"italy"`) that is currently unused dead code left over from an
   earlier hand-drawn-SVG map — the live map is MapLibre-based and doesn't consume it yet
   (hence the standing `no-unused-vars` lint warning there).
-- `site/` — `SiteNav` (dark variant on the landing hero, light variant elsewhere) and
-  `SiteFooter`, shared across both routes.
+- `auth/` — `AuthShell` (the globe-backdrop sign-in/sign-up scaffold — it renders the
+  shared `SiteNav`, not a nav of its own), the `Field` /
+  `FormError` / `SubmitButton` form primitives, `SignInForm` / `SignUpForm`, and the nav's
+  `NavAccount` + `SignOutButton`. `SignUpForm` is the only one that talks to HTTP directly
+  (`POST /api/users`, after a client-side `registerSchema` pre-flight that only saves a round
+  trip — the route re-validates regardless); everything else goes through the
+  `(auth)/actions.ts` server actions.
+- `site/` — `SiteNav` and `SiteFooter`. `SiteNav` is the **only** top bar in the app —
+  every page renders it (landing hero and the auth pages with `variant="onDark"`, `/plan`
+  and its `loading.tsx` with `variant="onLight"`); don't add a page-specific nav. Its
+  marketing links are root-relative hashes (`/#how`) rendered with `next/link` so they
+  resolve from off-landing pages while staying a same-route hash scroll on `/`.
 
 ### Map
 

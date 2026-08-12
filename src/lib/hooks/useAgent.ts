@@ -44,7 +44,9 @@ export function useAgent(agentId: string): UseAgentResult {
         const data = await res.json();
 
         if (!res.ok) {
-          setError(typeof data?.error === "string" ? data.error : "Request failed.");
+          setError(
+            typeof data?.error === "string" ? data.error : "Request failed.",
+          );
           setResponse(null);
           return;
         }
@@ -62,7 +64,7 @@ export function useAgent(agentId: string): UseAgentResult {
         }
       }
     },
-    [agentId]
+    [agentId],
   );
 
   const reset = useCallback(() => {

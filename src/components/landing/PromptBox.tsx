@@ -156,7 +156,9 @@ export default function PromptBox() {
             isPending ? "cursor-wait opacity-80" : ""
           }`}
         >
-          {isPending && pendingChip === null ? "Planning your trip…" : "Plan my trip"}
+          {isPending && pendingChip === null
+            ? "Planning your trip…"
+            : "Plan my trip"}
           {isPending && pendingChip === null ? (
             <SpinnerIcon size={17} />
           ) : (
@@ -176,8 +178,11 @@ export default function PromptBox() {
           const chipPending = pendingChip === chip;
           let state: string;
           if (chipPending) state = "cursor-wait border-white/50 bg-white/25";
-          else if (isPending) state = "cursor-wait border-white/25 bg-white/10 opacity-60";
-          else state = "cursor-pointer border-white/25 bg-white/10 hover:bg-white/20";
+          else if (isPending)
+            state = "cursor-wait border-white/25 bg-white/10 opacity-60";
+          else
+            state =
+              "cursor-pointer border-white/25 bg-white/10 hover:bg-white/20";
 
           return (
             <button

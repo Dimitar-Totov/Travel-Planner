@@ -89,7 +89,8 @@ function buildQuery(selection: Selection): string {
   const style = labelFor(selection, "style");
 
   let sentence: string;
-  if (days !== undefined && where !== undefined) sentence = `I have ${days} in ${where}`;
+  if (days !== undefined && where !== undefined)
+    sentence = `I have ${days} in ${where}`;
   else if (days !== undefined) sentence = `I have ${days} to travel`;
   else if (where !== undefined) sentence = `I have a trip to ${where}`;
   else sentence = "I have a trip";
@@ -141,7 +142,9 @@ export default function SentenceBuilder() {
   // takes over. See PromptBox for the same treatment on the hero search box.
   const [isPending, startTransition] = useTransition();
 
-  const chosenCount = GROUPS.filter((group) => selection[group.id] !== undefined).length;
+  const chosenCount = GROUPS.filter(
+    (group) => selection[group.id] !== undefined,
+  ).length;
   const ready = chosenCount >= READY_AT;
 
   function planTrip() {
@@ -167,7 +170,8 @@ export default function SentenceBuilder() {
     // server and the client two different sentences to hydrate.
     const next: Selection = {};
     for (const group of GROUPS) {
-      next[group.id] = group.options[Math.floor(Math.random() * group.options.length)].key;
+      next[group.id] =
+        group.options[Math.floor(Math.random() * group.options.length)].key;
     }
     setSelection(next);
   }
@@ -185,11 +189,13 @@ export default function SentenceBuilder() {
 
         <h2 className="mt-3.5 text-[27px] font-extrabold leading-[1.2] tracking-[-.025em] text-[#14405c] text-pretty">
           Not sure what to type?{" "}
-          <span className="font-serif font-normal italic tracking-normal">Build the sentence.</span>
+          <span className="font-serif font-normal italic tracking-normal">
+            Build the sentence.
+          </span>
         </h2>
         <p className="mt-2.5 max-w-[420px] text-[14.5px] leading-[1.55] text-[#6f8899] text-pretty">
-          Tap a few of these and we&rsquo;ll write the prompt for you. Change anything later —
-          nothing is locked in.
+          Tap a few of these and we&rsquo;ll write the prompt for you. Change
+          anything later — nothing is locked in.
         </p>
 
         <div className="mt-6 flex flex-col gap-[18px]">
@@ -203,7 +209,11 @@ export default function SentenceBuilder() {
                 >
                   {group.label}
                 </div>
-                <div role="group" aria-labelledby={labelId} className="flex flex-wrap gap-2">
+                <div
+                  role="group"
+                  aria-labelledby={labelId}
+                  className="flex flex-wrap gap-2"
+                >
                   {group.options.map((option) => {
                     const active = selection[group.id] === option.key;
                     return (
@@ -252,13 +262,26 @@ export default function SentenceBuilder() {
           className="mt-5 text-[19px] font-medium leading-[1.65] text-white text-pretty"
         >
           <span className="font-normal text-[#d3e7f5]">I have </span>
-          <SentenceSlot value={labelFor(selection, "days")} placeholder="how long" />
+          <SentenceSlot
+            value={labelFor(selection, "days")}
+            placeholder="how long"
+          />
           <span className="font-normal text-[#d3e7f5]"> in </span>
-          <SentenceSlot value={labelFor(selection, "where")} placeholder="where" />
+          <SentenceSlot
+            value={labelFor(selection, "where")}
+            placeholder="where"
+          />
           <span className="font-normal text-[#d3e7f5]"> with a </span>
-          <SentenceSlot value={labelFor(selection, "budget")} placeholder="budget" />
+          <SentenceSlot
+            value={labelFor(selection, "budget")}
+            placeholder="budget"
+          />
           <span className="font-normal text-[#d3e7f5]"> budget, mostly </span>
-          <SentenceSlot value={labelFor(selection, "style")} placeholder="your thing" suffix="." />
+          <SentenceSlot
+            value={labelFor(selection, "style")}
+            placeholder="your thing"
+            suffix="."
+          />
         </p>
 
         <div className="mt-[26px] flex flex-col gap-2.5">
@@ -279,7 +302,11 @@ export default function SentenceBuilder() {
             }`}
           >
             {isPending && <SpinnerIcon size={16} />}
-            {!ready ? "Pick a couple to continue" : isPending ? "Planning your trip…" : "Plan this trip"}
+            {!ready
+              ? "Pick a couple to continue"
+              : isPending
+                ? "Planning your trip…"
+                : "Plan this trip"}
           </button>
           <div className="flex gap-2.5">
             <button

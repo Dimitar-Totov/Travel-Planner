@@ -28,7 +28,8 @@ export default function FlightsCard({
       <div className="flex items-baseline justify-between gap-2">
         <div>
           <div className="text-[14px] font-bold tracking-[-.01em]">
-            {outbound.from} <span className="font-medium text-[#b7c0c7]">→</span> {outbound.to}
+            {outbound.from}{" "}
+            <span className="font-medium text-[#b7c0c7]">→</span> {outbound.to}
           </div>
           <div className="mt-[3px] text-[11.5px] text-muted-2">
             {outbound.duration} · {outbound.stops} · {outbound.carrier}
@@ -55,7 +56,9 @@ export default function FlightsCard({
         </span>
       </div>
 
-      <div className="mt-2.5 font-mono text-[10px] text-[#a3adb4]">{refreshedText}</div>
+      <div className="mt-2.5 font-mono text-[10px] text-[#a3adb4]">
+        {refreshedText}
+      </div>
     </div>
   );
 }

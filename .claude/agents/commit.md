@@ -70,17 +70,17 @@ Closes #issue-number
 
 **Type vocabulary** — use exactly as written:
 
-| Type | Use when |
-|---|---|
-| `feat` | Adds a capability visible to end users or API consumers |
-| `fix` | Corrects a defect |
-| `refactor` | Restructures code without changing observable behavior |
-| `test` | Adds or modifies tests only |
-| `docs` | Documentation changes only |
-| `style` | Formatting, whitespace, or linting with no logic change |
-| `build` | Build system, scripts, or external dependency changes |
-| `ci` | CI configuration and pipeline changes |
-| `chore` | Housekeeping that does not fit any of the above |
+| Type       | Use when                                                |
+| ---------- | ------------------------------------------------------- |
+| `feat`     | Adds a capability visible to end users or API consumers |
+| `fix`      | Corrects a defect                                       |
+| `refactor` | Restructures code without changing observable behavior  |
+| `test`     | Adds or modifies tests only                             |
+| `docs`     | Documentation changes only                              |
+| `style`    | Formatting, whitespace, or linting with no logic change |
+| `build`    | Build system, scripts, or external dependency changes   |
+| `ci`       | CI configuration and pipeline changes                   |
+| `chore`    | Housekeeping that does not fit any of the above         |
 
 **Subject rules:**
 
