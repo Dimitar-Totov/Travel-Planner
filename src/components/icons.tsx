@@ -81,11 +81,37 @@ export function ArrowRightIcon(props: IconProps) {
   );
 }
 
+export function ArrowDownIcon(props: IconProps) {
+  return (
+    <Stroke strokeWidth={2.2} {...props}>
+      <path d="M12 5v14" />
+      <path d="M6 13l6 6 6-6" />
+    </Stroke>
+  );
+}
+
 export function SearchIcon(props: IconProps) {
   return (
     <Stroke {...props}>
       <circle cx="11" cy="11" r="7" />
       <path d="M21 21l-4.3-4.3" />
+    </Stroke>
+  );
+}
+
+export function HeartIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <path d="M20.8 5.6a5 5 0 0 0-7.1 0L12 7.3l-1.7-1.7a5 5 0 1 0-7.1 7.1L12 21l8.8-8.3a5 5 0 0 0 0-7.1z" />
+    </Stroke>
+  );
+}
+
+export function EyeIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <path d="M1.5 12S5 5.5 12 5.5S22.5 12 22.5 12S19 18.5 12 18.5S1.5 12 1.5 12z" />
+      <circle cx="12" cy="12" r="3" />
     </Stroke>
   );
 }
