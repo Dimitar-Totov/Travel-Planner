@@ -3,8 +3,9 @@
  *
  * There is no backend behind this yet: the twelve guides below are static copy
  * ported from the design doc, and every filter/sort on the page runs over this
- * array in the browser. Thumbnails and avatars are CSS gradients rather than
- * photos, the same placeholder trick `Hotel.gradient` uses on the PlanBoard.
+ * array in the browser. Cover photos are real Unsplash images (`coverImage`,
+ * fixed photo IDs — no API key needed); avatars are still CSS gradients, the
+ * same placeholder trick `Hotel.gradient` uses on the PlanBoard.
  */
 
 export interface DestinationGuide {
@@ -24,8 +25,8 @@ export interface DestinationGuide {
   meta: string;
   /** Where the guide is set; used as the thumbnail's accessible description. */
   place: string;
-  /** CSS gradient standing in for the cover photo. */
-  thumbGradient: string;
+  /** Unsplash photo URL for the cover thumbnail. */
+  coverImage: string;
   verified: boolean;
 }
 
@@ -52,7 +53,8 @@ export const destinationGuides: DestinationGuide[] = [
     approxCostEUR: 1450,
     meta: "7 days · ¥¥",
     place: "Kyoto temple",
-    thumbGradient: "linear-gradient(150deg,#c9705a,#8f3f37)",
+    coverImage:
+      "https://images.unsplash.com/photo-1558870832-c8db4b5b47d1?q=80&w=800&auto=format&fit=crop",
     verified: true,
   },
   {
@@ -68,7 +70,8 @@ export const destinationGuides: DestinationGuide[] = [
     approxCostEUR: 1200,
     meta: "5 days · €€",
     place: "Paris skyline",
-    thumbGradient: "linear-gradient(150deg,#7fa9c9,#33628a)",
+    coverImage:
+      "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?q=80&w=800&auto=format&fit=crop",
     verified: true,
   },
   {
@@ -84,7 +87,8 @@ export const destinationGuides: DestinationGuide[] = [
     approxCostEUR: 950,
     meta: "6 days · $$",
     place: "San Juan coast",
-    thumbGradient: "linear-gradient(150deg,#79c2ae,#2c7f74)",
+    coverImage:
+      "https://images.unsplash.com/photo-1565066021936-08655d8ec3ab?q=80&w=800&auto=format&fit=crop",
     verified: true,
   },
   {
@@ -100,7 +104,8 @@ export const destinationGuides: DestinationGuide[] = [
     approxCostEUR: 780,
     meta: "4 days · $$",
     place: "Chicago downtown",
-    thumbGradient: "linear-gradient(150deg,#8b93a8,#3d465f)",
+    coverImage:
+      "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?q=80&w=800&auto=format&fit=crop",
     verified: true,
   },
   {
@@ -116,7 +121,8 @@ export const destinationGuides: DestinationGuide[] = [
     approxCostEUR: 690,
     meta: "7 days · €",
     place: "Málaga marina",
-    thumbGradient: "linear-gradient(150deg,#e0b46a,#b07a2e)",
+    coverImage:
+      "https://images.unsplash.com/photo-1553775556-79c5b0914909?q=80&w=800&auto=format&fit=crop",
     verified: false,
   },
   {
@@ -132,7 +138,8 @@ export const destinationGuides: DestinationGuide[] = [
     approxCostEUR: 890,
     meta: "6 days · £",
     place: "Giant’s Causeway",
-    thumbGradient: "linear-gradient(150deg,#8fbf9a,#38714f)",
+    coverImage:
+      "https://images.unsplash.com/photo-1595538853083-dc3160ca6881?q=80&w=800&auto=format&fit=crop",
     verified: false,
   },
   {
@@ -148,7 +155,8 @@ export const destinationGuides: DestinationGuide[] = [
     approxCostEUR: 560,
     meta: "3 days · €€",
     place: "Milan Duomo",
-    thumbGradient: "linear-gradient(150deg,#b98fb0,#6a3f74)",
+    coverImage:
+      "https://images.unsplash.com/photo-1567760855784-589f09ed5dc6?q=80&w=800&auto=format&fit=crop",
     verified: false,
   },
   {
@@ -164,7 +172,8 @@ export const destinationGuides: DestinationGuide[] = [
     approxCostEUR: 1980,
     meta: "10 days · €€",
     place: "Venice canal",
-    thumbGradient: "linear-gradient(150deg,#6fa8c4,#276a8c)",
+    coverImage:
+      "https://images.unsplash.com/photo-1558271736-cd043ef2e855?q=80&w=800&auto=format&fit=crop",
     verified: true,
   },
   {
@@ -180,7 +189,8 @@ export const destinationGuides: DestinationGuide[] = [
     approxCostEUR: 2450,
     meta: "9 days · CHF",
     place: "Lake Brienz",
-    thumbGradient: "linear-gradient(150deg,#9fc4d8,#3f6f8f)",
+    coverImage:
+      "https://images.unsplash.com/photo-1612215864092-355d4b25083f?q=80&w=800&auto=format&fit=crop",
     verified: true,
   },
   {
@@ -196,7 +206,8 @@ export const destinationGuides: DestinationGuide[] = [
     approxCostEUR: 980,
     meta: "4 nights · ¥¥",
     place: "Tokyo alley",
-    thumbGradient: "linear-gradient(150deg,#c76b7a,#6d2c46)",
+    coverImage:
+      "https://images.unsplash.com/photo-1573455494060-c5595004fb6c?q=80&w=800&auto=format&fit=crop",
     verified: false,
   },
   {
@@ -212,7 +223,8 @@ export const destinationGuides: DestinationGuide[] = [
     approxCostEUR: 420,
     meta: "3 days · $",
     place: "Reno balloon race",
-    thumbGradient: "linear-gradient(150deg,#e6a86a,#a85f31)",
+    coverImage:
+      "https://images.unsplash.com/photo-1631462608214-e23805290d3b?q=80&w=800&auto=format&fit=crop",
     verified: false,
   },
   {
@@ -228,7 +240,8 @@ export const destinationGuides: DestinationGuide[] = [
     approxCostEUR: 890,
     meta: "14 days · ฿",
     place: "Thai temple",
-    thumbGradient: "linear-gradient(150deg,#e0b155,#a8632a)",
+    coverImage:
+      "https://images.unsplash.com/photo-1562602833-0f4ab2fc46e3?q=80&w=800&auto=format&fit=crop",
     verified: true,
   },
 ];

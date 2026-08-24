@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { DestinationGuide } from "@/lib/destinationGuides";
 import { formatLikes, formatViews } from "@/lib/destinationGuides";
 import { CheckIcon, HeartIcon, EyeIcon } from "@/components/icons";
@@ -8,24 +9,23 @@ const THUMB_SCRIM =
   "linear-gradient(180deg,rgba(15,47,71,.28) 0%,rgba(15,47,71,0) 42%)";
 
 /**
- * One guide in the /destinations feed. Pure presentation — the cover photo and
- * author avatar are CSS gradients (same placeholder approach as
- * `HotelsCard`'s `Hotel.gradient`), since there is no image source yet.
+ * One guide in the /destinations feed. Pure presentation — the cover photo is
+ * a real Unsplash image; the author avatar is still a CSS gradient (same
+ * placeholder approach as `HotelsCard`'s `Hotel.gradient`).
  */
 export default function GuideCard({ guide }: { guide: DestinationGuide }) {
   return (
     <article className="group overflow-hidden rounded-2xl bg-white shadow-[0_18px_38px_-32px_rgba(20,52,78,.45)]">
-      {/* `place` is only ever the cover photo's caption, and the cover is a
-          gradient tile here — it stays a tooltip rather than visible text.
-          The gradient lives in its own layer so it can zoom on hover without
-          dragging the scrim/meta pill along with it. */}
-      <div
-        className="relative h-[186px] overflow-hidden bg-[#e8eff4]"
-        title={guide.place}
-      >
-        <div
-          className="absolute inset-0 transition-transform duration-[600ms] ease-[cubic-bezier(.2,.7,.2,1)] group-hover:scale-[1.08]"
-          style={{ background: guide.thumbGradient }}
+      {/* `place` doubles as the cover photo's alt text. The image lives in
+          its own layer so it can zoom on hover without dragging the
+          scrim/meta pill along with it. */}
+      <div className="relative h-[186px] overflow-hidden bg-[#e8eff4]">
+        <Image
+          src={guide.coverImage}
+          alt={guide.place}
+          fill
+          sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+          className="object-cover transition-transform duration-[600ms] ease-[cubic-bezier(.2,.7,.2,1)] group-hover:scale-[1.08]"
         />
         <div
           className="pointer-events-none absolute inset-0"
