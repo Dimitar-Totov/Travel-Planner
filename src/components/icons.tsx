@@ -90,6 +90,15 @@ export function ArrowDownIcon(props: IconProps) {
   );
 }
 
+export function ArrowUpIcon(props: IconProps) {
+  return (
+    <Stroke strokeWidth={2.2} {...props}>
+      <path d="M12 19V5" />
+      <path d="M6 11l6-6 6 6" />
+    </Stroke>
+  );
+}
+
 export function SearchIcon(props: IconProps) {
   return (
     <Stroke {...props}>
