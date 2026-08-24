@@ -1,243 +1,128 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { SearchIcon, ArrowDownIcon } from "@/components/icons";
-import GuideCard from "./GuideCard";
-import {
-  destinationGuides,
-  popularDestinations,
-  type DestinationGuide,
-} from "@/lib/destinationGuides";
-
-type TabId = "recent" | "loved" | "budget" | "weekends";
-
-/** `heading` swaps the section title so it always describes what's listed. */
-const TABS: { id: TabId; label: string; heading: string }[] = [
-  { id: "recent", label: "Recent", heading: "Recent guides" },
-  { id: "loved", label: "Most loved", heading: "Most loved guides" },
-  { id: "budget", label: "Budget under €1k", heading: "Guides under €1k" },
-  { id: "weekends", label: "Weekends", heading: "Weekend guides" },
-];
-
-const PAGE_SIZE = 8;
-
-/** Faint 52px vertical rules, continuing the pattern from `DestinationsHero`
- *  across the seam between the two bands. */
-const BAND_PATTERN =
-  "repeating-linear-gradient(90deg, rgba(19,74,111,.035) 0 1px, transparent 1px 52px)";
-
-/** Applies the active tab's sort/filter. "recent" keeps the authored order. */
-function guidesForTab(tab: TabId): DestinationGuide[] {
-  switch (tab) {
-    case "loved":
-      return [...destinationGuides].sort((a, b) => b.likes - a.likes);
-    case "budget":
-      return destinationGuides.filter((g) => g.approxCostEUR < 1000);
-    case "weekends":
-      return destinationGuides.filter((g) => g.days <= 4);
-    case "recent":
-      return destinationGuides;
-  }
-}
-
-function matchesQuery(guide: DestinationGuide, needle: string): boolean {
-  return (
-    guide.title.toLowerCase().includes(needle) ||
-    guide.author.toLowerCase().includes(needle) ||
-    guide.blurb.toLowerCase().includes(needle)
-  );
-}
+import Image from "next/image";
+import { SparkleIcon } from "@/components/icons";
+import DestinationsSearchBand from "./DestinationsSearchBand";
+import DestinationsResults from "./DestinationsResults";
+import { useDestinationsExplorer } from "@/lib/hooks/useDestinationsExplorer";
 
 /**
- * The interactive half of /destinations: the search band, the tab row, and the
- * paged guide feed. Everything filters client-side over the hardcoded
- * `destinationGuides` list — there is no guides API yet. Typing does NOT
- * filter live: `draft` tracks the input as the user types, and `query` (the
- * value results are actually filtered against) only advances on an explicit
- * search action — the Search button/Enter, a popular-destination chip, or
- * "See more…".
+ * The single scrim over the one backdrop photo. Darkest at the top, where the
+ * white heading and subhead sit; holds a dark plateau through the middle so the
+ * search band's caption stays legible over the photo's bright areas; then ramps
+ * to the page's white across the bottom sixth so the band dissolves into the
+ * plain-white guide feed instead of ending on a hard edge. The photo itself is
+ * shown at full colour underneath — this only darkens, it doesn't tint.
+ */
+const BACKDROP_SCRIM =
+  "linear-gradient(180deg," +
+  "rgba(6,18,28,.78) 0%," +
+  "rgba(7,20,31,.62) 22%," +
+  "rgba(8,23,35,.56) 46%," +
+  "rgba(9,27,41,.60) 68%," +
+  "rgba(12,34,51,.66) 84%," +
+  "rgba(140,170,190,.80) 94%," +
+  "#fff 100%)";
+
+/**
+ * The whole of /destinations below the nav.
+ *
+ * The banner copy and the search band deliberately share ONE `<section>` — and
+ * therefore one `<Image>` and one scrim — so the backdrop illustration reads as
+ * a single continuous photo behind both, rather than two independently cropped
+ * copies of the same file with a seam between them. The section takes its height
+ * from normal flow (copy + band), which is what keeps it responsive: no fixed
+ * height, no aspect-ratio hack, so it never letterboxes on wide screens or
+ * clips its own content on narrow ones.
+ *
+ * `object-cover` therefore crops a different window of the illustration at each
+ * width — a tall window on mobile (where the stacked copy makes the section
+ * tall) and a wide letterbox one on desktop. `object-position` is biased just
+ * above centre so the globe, train and the plane's engines stay in frame as
+ * desktop crops in, instead of the crop drifting down into open water.
+ *
+ * All state lives in `useDestinationsExplorer` because it is shared across that
+ * boundary: the search band renders inside the photo, the results feed renders
+ * on plain white below it.
  */
 export default function DestinationsExplorer() {
-  const [draft, setDraft] = useState("");
-  const [query, setQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<TabId>("recent");
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-
-  const results = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    const tabbed = guidesForTab(activeTab);
-    return needle ? tabbed.filter((g) => matchesQuery(g, needle)) : tabbed;
-  }, [query, activeTab]);
-
-  const visible = results.slice(0, visibleCount);
-  const hasMore = results.length > visibleCount;
-  const heading =
-    TABS.find((t) => t.id === activeTab)?.heading ?? TABS[0].heading;
-
-  function search(next: string) {
-    setDraft(next);
-    setQuery(next);
-    setVisibleCount(PAGE_SIZE);
-  }
-
-  function selectTab(next: TabId) {
-    setActiveTab(next);
-    setVisibleCount(PAGE_SIZE);
-  }
+  const {
+    draft,
+    query,
+    activeTab,
+    heading,
+    results,
+    visible,
+    hasMore,
+    setDraft,
+    search,
+    selectTab,
+    loadMore,
+  } = useDestinationsExplorer();
 
   return (
     <>
-      <section className="relative overflow-hidden border-b border-[#eef1f4] bg-[linear-gradient(180deg,#fbfcfd_0%,#fff_100%)] px-6 pb-[58px] pt-[30px] sm:px-10">
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{ background: BAND_PATTERN }}
+      <section
+        id="top"
+        className="relative isolate flex flex-col overflow-hidden px-6 pb-[62px] pt-[64px] sm:px-10 sm:pb-[70px] sm:pt-[72px] lg:min-h-[82vh] lg:justify-center lg:pb-[80px] lg:pt-[80px] xl:min-h-[88vh]"
+      >
+        {/* Decorative, so `alt=""` keeps it out of the a11y tree. `sizes`
+            overshoots the viewport below `lg` because `object-cover` scales the
+            photo by the section's height there, not its width — the rendered
+            image is ~1.5–3× wider than the viewport, and a 100vw hint would
+            hand back a candidate far too small and visibly soft. */}
+        <Image
+          src="/destinations-background-image.png"
+          alt=""
+          fill
+          priority
+          sizes="(max-width: 640px) 300vw, (max-width: 1024px) 150vw, 100vw"
+          className="pointer-events-none object-cover object-[center_42%]"
         />
 
-        <div className="relative mx-auto max-w-[720px]">
-          {/* Typing only updates the draft text — results don't filter until
-              this submits (Search button or Enter). */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              search(draft);
-            }}
-            className="tp-rise flex items-center gap-2.5 rounded-2xl border border-[#dbe4ea] bg-white py-2 pl-[18px] pr-2 shadow-[0_24px_50px_-32px_rgba(20,52,78,.55)]"
-          >
-            <label htmlFor="destination-search" className="sr-only">
-              Search for a destination
-            </label>
-            <span className="flex-none text-[#94a4ad]">
-              <SearchIcon size={19} />
-            </span>
-            <input
-              id="destination-search"
-              name="destination"
-              type="search"
-              autoComplete="off"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Search for a destination"
-              className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[16.5px] font-medium text-ink outline-none placeholder:text-[#8a98a1] [&::-webkit-search-cancel-button]:hidden"
-            />
-            <button
-              type="submit"
-              className="tp-btn flex-none rounded-xl bg-[linear-gradient(150deg,#2f7fb0,#134a6f)] px-[22px] py-3 text-[14.5px] font-bold text-white shadow-[0_14px_26px_-14px_rgba(19,74,111,.9)]"
-            >
-              Search
-            </button>
-          </form>
-
-          <div className="mt-[22px] text-center text-[13.5px] text-[#7c8a93]">
-            Or browse our most popular destinations:
-          </div>
-
-          <div className="mt-[13px] flex flex-wrap justify-center gap-[9px]">
-            {popularDestinations.map((place) => {
-              const active = query === place;
-              return (
-                <button
-                  key={place}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => search(active ? "" : place)}
-                  className={`tp-chip rounded-full border px-[15px] py-2 text-[13px] font-semibold ${
-                    active
-                      ? "border-[#c4dcec] bg-[#eaf3f9] text-brand-700"
-                      : "border-[#e4eaee] bg-surface-2 text-[#46555f] hover:border-[#c4dcec] hover:bg-[#eaf3f9] hover:text-brand-700"
-                  }`}
-                >
-                  {place}
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              onClick={() => search("")}
-              className="tp-chip rounded-full border border-[#d3e7f2] bg-[#eaf3f9] px-[15px] py-2 text-[13px] font-bold text-brand-600 hover:border-[#c4dcec] hover:bg-[#e0eef7]"
-            >
-              See more&hellip;
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-[1360px] px-6 pb-6 pt-11 sm:px-12">
-        <div className="flex flex-wrap items-end justify-between gap-6 border-b border-[#eef1f4] pb-3.5">
-          <div className="flex items-baseline gap-3.5">
-            <h2 className="text-[26px] font-extrabold tracking-[-.022em] text-ink-soft">
-              {heading}
-            </h2>
-          </div>
-
-          {/* Buttons with aria-pressed rather than an ARIA tablist: there is one
-              list being filtered, not four separate panels. */}
-          <div
-            role="group"
-            aria-label="Filter guides"
-            className="flex flex-wrap items-center gap-x-[26px] gap-y-2"
-          >
-            {TABS.map((tab) => {
-              const active = tab.id === activeTab;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => selectTab(tab.id)}
-                  className={`border-b-2 pb-[9px] text-[14px] transition-colors ${
-                    active
-                      ? "border-brand-500 font-bold text-brand-700"
-                      : "border-transparent font-semibold text-muted hover:text-ink"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-[1360px] px-6 pt-[26px] sm:px-12">
-        {visible.length > 0 && (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-x-[26px] gap-y-7">
-            {visible.map((guide) => (
-              <GuideCard key={guide.slug} guide={guide} />
-            ))}
-          </div>
-        )}
-
-        {/* One always-mounted live region doubles as the count caption and the
-            empty state, so a filter that matches nothing is announced. */}
         <div
-          className={`flex flex-col items-center gap-3 pb-2 ${
-            results.length === 0 ? "pt-16" : "pt-[52px]"
-          }`}
-        >
-          {hasMore && (
-            <button
-              type="button"
-              onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-              className="tp-btn inline-flex items-center gap-[9px] rounded-full border border-[#d5e2ea] bg-white px-[26px] py-3.5 text-[15px] font-bold text-brand-700 shadow-[0_16px_34px_-24px_rgba(20,52,78,.55)]"
-            >
-              Load more guides
-              <ArrowDownIcon size={16} />
-            </button>
-          )}
-          <p
-            role="status"
-            className={
-              results.length === 0
-                ? "text-center text-[15px] text-muted"
-                : "text-[12.5px] text-[#8b98a1]"
-            }
-          >
-            {results.length === 0
-              ? "No guides match your search."
-              : `Showing ${visible.length} of ${results.length}`}
+          className="pointer-events-none absolute inset-0"
+          style={{ background: BACKDROP_SCRIM }}
+        />
+
+        <div className="relative mx-auto max-w-[720px] text-center">
+          <span className="tp-rise inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/12 px-3.5 py-[7px] text-[12px] font-bold uppercase tracking-[.09em] text-white shadow-[0_8px_20px_-14px_rgba(0,0,0,.65)] backdrop-blur-[6px]">
+            <SparkleIcon size={13} />
+            3,480 guides · 112 countries
+          </span>
+
+          <h1 className="tp-rise mt-5 text-[36px] font-extrabold leading-[1.04] tracking-[-.032em] text-white text-balance [text-shadow:0_2px_18px_rgba(11,36,56,.45)] sm:text-[44px] lg:text-[52px]">
+            Explore travel guides and{" "}
+            <span className="font-serif font-medium italic text-brand-300">
+              itineraries
+            </span>
+          </h1>
+
+          <p className="tp-rise mx-auto mt-4 max-w-[520px] text-[16px] leading-[1.6] text-[#cadeeb] [text-shadow:0_1px_12px_rgba(11,36,56,.45)] sm:text-[17.5px]">
+            Real trips from real travellers — open any guide and remix it into
+            your own plan in one click.
           </p>
         </div>
+
+        <div className="relative mx-auto mt-[42px] max-w-[720px] sm:mt-[48px] lg:mt-[84px] xl:mt-[96px]">
+          <DestinationsSearchBand
+            draft={draft}
+            query={query}
+            onDraftChange={setDraft}
+            onSearch={search}
+          />
+        </div>
       </section>
+
+      <DestinationsResults
+        activeTab={activeTab}
+        heading={heading}
+        results={results}
+        visible={visible}
+        hasMore={hasMore}
+        onSelectTab={selectTab}
+        onLoadMore={loadMore}
+      />
     </>
   );
 }
