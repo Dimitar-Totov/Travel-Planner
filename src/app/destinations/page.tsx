@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import SiteNav from "@/components/site/SiteNav";
 import SiteFooter from "@/components/site/SiteFooter";
 import DestinationsExplorer from "@/components/destinations/DestinationsExplorer";
+import ScrollToTopButton from "@/components/destinations/ScrollToTopButton";
 
 export const metadata: Metadata = {
   title: "Destinations · Travel Planner",
@@ -25,6 +26,11 @@ export default function DestinationsPage() {
       </main>
 
       <SiteFooter />
+
+      {/* Mounted at the route boundary, not inside DestinationsExplorer, so it
+          can only ever exist on /destinations. It is position-fixed, so where
+          it sits in the document is irrelevant to the layout. */}
+      <ScrollToTopButton />
     </div>
   );
 }
