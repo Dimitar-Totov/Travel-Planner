@@ -244,6 +244,125 @@ export const destinationGuides: DestinationGuide[] = [
       "https://images.unsplash.com/photo-1562602833-0f4ab2fc46e3?q=80&w=800&auto=format&fit=crop",
     verified: true,
   },
+  {
+    slug: "iceland-ring-road-in-winter",
+    title: "Iceland Ring Road in Winter",
+    blurb:
+      "Ice caves, the northern lights, and how to keep a rental car alive on Route 1 in February.",
+    author: "Sölvi T.",
+    avatarGradient: "linear-gradient(150deg,#8fb8d8,#2e5a82)",
+    likes: 1638,
+    views: 143000,
+    days: 8,
+    approxCostEUR: 2180,
+    meta: "8 days · kr",
+    place: "Icelandic ice cave",
+    coverImage:
+      "https://images.unsplash.com/photo-1504829857797-ddff29c27927?q=80&w=800&auto=format&fit=crop",
+    verified: true,
+  },
+  {
+    slug: "new-york-city-long-weekend",
+    title: "New York City Long Weekend",
+    blurb:
+      "Four days, no car, and the subway routes that make Manhattan and Brooklyn feel like one trip.",
+    author: "Priya N.",
+    avatarGradient: "linear-gradient(150deg,#a89bc9,#4f3f7a)",
+    likes: 894,
+    views: 121000,
+    days: 4,
+    approxCostEUR: 1380,
+    meta: "4 days · $$",
+    place: "New York skyline",
+    coverImage:
+      "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?q=80&w=800&auto=format&fit=crop",
+    verified: true,
+  },
+  {
+    slug: "lisbon-on-a-shoestring",
+    title: "Lisbon on a Shoestring",
+    blurb:
+      "Miradouros, pastel de nata crawls, and how I did five days here for less than one night in London.",
+    author: "Tomás R.",
+    avatarGradient: "linear-gradient(150deg,#e0a866,#a85c2e)",
+    likes: 512,
+    views: 61300,
+    days: 5,
+    approxCostEUR: 610,
+    meta: "5 days · €",
+    place: "Lisbon tram",
+    coverImage:
+      "https://images.unsplash.com/photo-1585208798174-6cedd86e019a?q=80&w=800&auto=format&fit=crop",
+    verified: false,
+  },
+  {
+    slug: "cape-town-10-days",
+    title: "Cape Town — 10 Days",
+    blurb:
+      "Table Mountain at sunrise, the Cape wine lands, and a coastal drive I'd redo tomorrow.",
+    author: "Naledi M.",
+    avatarGradient: "linear-gradient(150deg,#7fb0a0,#2e6f5a)",
+    likes: 367,
+    views: 44700,
+    days: 10,
+    approxCostEUR: 1620,
+    meta: "10 days · R",
+    place: "Table Mountain",
+    coverImage:
+      "https://images.unsplash.com/photo-1580060839134-75a5edca2e99?q=80&w=800&auto=format&fit=crop",
+    verified: true,
+  },
+  {
+    slug: "seoul-weekend-eats",
+    title: "Seoul Weekend Eats",
+    blurb:
+      "A three-day food crawl through Myeongdong, Hongdae, and the market stall that ruined all other kimchi.",
+    author: "Jiwoo K.",
+    avatarGradient: "linear-gradient(150deg,#c98fae,#7a3f5e)",
+    likes: 289,
+    views: 33900,
+    days: 3,
+    approxCostEUR: 540,
+    meta: "3 days · ₩₩",
+    place: "Seoul night market",
+    coverImage:
+      "https://images.unsplash.com/photo-1517154421773-0529f29ea451?q=80&w=800&auto=format&fit=crop",
+    verified: false,
+  },
+  {
+    slug: "peru-highlands-and-machu-picchu",
+    title: "Peru Highlands & Machu Picchu",
+    blurb:
+      "Cusco altitude tips, the Sacred Valley at your own pace, and booking the trek months out.",
+    author: "Diego F.",
+    avatarGradient: "linear-gradient(150deg,#c9a06f,#8a5a2e)",
+    likes: 1029,
+    views: 87200,
+    days: 9,
+    approxCostEUR: 1740,
+    meta: "9 days · S/",
+    place: "Machu Picchu ruins",
+    coverImage:
+      "https://images.unsplash.com/photo-1526392060635-9d6019884377?q=80&w=800&auto=format&fit=crop",
+    verified: true,
+  },
+  {
+    slug: "amsterdam-by-bike",
+    title: "Amsterdam by Bike",
+    blurb:
+      "Canal routes, day trips to Haarlem and Zaanse Schans, and where to actually rent a bike that fits.",
+    author: "Fenna de V.",
+    avatarGradient: "linear-gradient(150deg,#e0895f,#a8422e)",
+    likes: 63,
+    views: 8940,
+    days: 3,
+    approxCostEUR: 720,
+    meta: "3 days · €€",
+    place: "Amsterdam canal",
+    coverImage:
+      "https://images.unsplash.com/photo-1534351590666-13e3e96b5017?q=80&w=800&auto=format&fit=crop",
+    verified: false,
+  },
 ];
 
 /** Likes read as exact counts: 2777 → "2,777". */
