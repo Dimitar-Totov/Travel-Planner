@@ -37,5 +37,4 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 TODO:
 
-- Read last changes
-- Move get world time functionality to utils
+
