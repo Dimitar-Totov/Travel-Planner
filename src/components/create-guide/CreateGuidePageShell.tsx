@@ -52,11 +52,11 @@ export default function CreateGuidePageShell({
   // would compete in a screen reader's document outline, so the bar's title
   // steps down to plain text while that is on screen.
   const barTitle = previewing ? (
-    <p className="text-[17px] font-extrabold tracking-[-.02em] text-ink">
+    <p className="text-[17px] font-extrabold tracking-[-.02em] text-ink lg:text-[19px]">
       Create a guide
     </p>
   ) : (
-    <h1 className="text-[17px] font-extrabold tracking-[-.02em] text-ink">
+    <h1 className="text-[17px] font-extrabold tracking-[-.02em] text-ink lg:text-[19px]">
       Create a guide
     </h1>
   );
@@ -69,17 +69,17 @@ export default function CreateGuidePageShell({
     >
       {nav}
 
-      <div className="flex flex-none flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-line bg-white px-5 py-3.5 sm:px-8">
+      <div className="flex flex-none flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-line bg-white px-5 py-3.5 sm:px-8 lg:px-10 lg:py-5">
         <div className="min-w-0">
           {barTitle}
-          <p className="mt-0.5 text-[12.5px] text-muted">
+          <p className="mt-0.5 text-[12.5px] text-muted lg:text-[13.5px]">
             {form.days.length} {form.days.length === 1 ? "day" : "days"} ·{" "}
             {form.stopCount} {form.stopCount === 1 ? "stop" : "stops"} · draft
             kept in this tab only
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5 lg:gap-3">
           <div
             role="group"
             aria-label="Editing mode"
@@ -93,7 +93,7 @@ export default function CreateGuidePageShell({
                   type="button"
                   onClick={() => setMode(item.value)}
                   aria-pressed={active}
-                  className={`tp-chip-shadow inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13.5px] font-bold outline-offset-2 outline-brand-500 focus-visible:outline-2 ${
+                  className={`tp-chip-shadow inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13.5px] font-bold outline-offset-2 outline-brand-500 focus-visible:outline-2 lg:px-5 lg:py-2.5 lg:text-[14.5px] ${
                     active
                       ? "bg-white text-brand-700 shadow-[0_6px_16px_-10px_rgba(20,52,78,.8)]"
                       : "text-[#68767f] hover:text-brand-700"
@@ -114,7 +114,7 @@ export default function CreateGuidePageShell({
             type="button"
             disabled
             title="Publishing isn't built yet — guides are still a static, hardcoded list"
-            className="inline-flex cursor-not-allowed items-center gap-2 rounded-full bg-surface-2 px-5 py-2.5 text-[14px] font-bold text-[#a3b0b8]"
+            className="inline-flex cursor-not-allowed items-center gap-2 rounded-full bg-surface-2 px-5 py-2.5 text-[14px] font-bold text-[#a3b0b8] lg:px-6 lg:py-3 lg:text-[15px]"
           >
             <UploadIcon size={15} /> Publish
           </button>

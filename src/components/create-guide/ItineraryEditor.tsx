@@ -34,11 +34,11 @@ export default function ItineraryEditor({
         <div>
           <h2
             id="itinerary-editor-heading"
-            className="text-[20px] font-extrabold tracking-[-.024em] text-ink-soft"
+            className="text-[20px] font-extrabold tracking-[-.024em] text-ink-soft lg:text-[24px]"
           >
             Itinerary
           </h2>
-          <p className="mt-1 text-[13.5px] text-muted">
+          <p className="mt-1 text-[13.5px] text-muted lg:mt-1.5 lg:text-[15px]">
             {form.days.length} {form.days.length === 1 ? "day" : "days"} ·{" "}
             {form.stopCount} {form.stopCount === 1 ? "stop" : "stops"}
             {form.unplacedCount > 0 &&
@@ -49,7 +49,7 @@ export default function ItineraryEditor({
         <button
           type="button"
           onClick={form.addDay}
-          className="tp-btn-shadow inline-flex items-center gap-2 rounded-full bg-[linear-gradient(150deg,#2f7fb0,#134a6f)] px-4 py-2.5 text-[13.5px] font-bold text-white shadow-[0_12px_24px_-14px_rgba(19,74,111,.9)] outline-offset-2 outline-brand-500 focus-visible:outline-2"
+          className="tp-btn-shadow inline-flex items-center gap-2 rounded-full bg-[linear-gradient(150deg,#2f7fb0,#134a6f)] px-4 py-2.5 text-[13.5px] font-bold text-white shadow-[0_12px_24px_-14px_rgba(19,74,111,.9)] outline-offset-2 outline-brand-500 focus-visible:outline-2 lg:px-5 lg:py-3 lg:text-[14.5px]"
         >
           <PlusIcon size={15} />
           Add day
@@ -57,11 +57,11 @@ export default function ItineraryEditor({
       </div>
 
       {form.days.length === 0 ? (
-        <p className="mt-5 rounded-2xl border border-dashed border-line bg-surface-3 px-4 py-8 text-center text-[13.5px] text-muted">
+        <p className="mt-5 rounded-2xl border border-dashed border-line bg-surface-3 px-4 py-8 text-center text-[13.5px] text-muted lg:py-10 lg:text-[14.5px]">
           No days yet. Add the first one to start the itinerary.
         </p>
       ) : (
-        <div className="mt-5 flex flex-col gap-5">
+        <div className="mt-5 flex flex-col gap-5 lg:mt-7 lg:gap-6">
           {form.days.map((day, dayIndex) => {
             const label = day.title.trim() || `Day ${dayIndex + 1}`;
             const stopCount = day.stops.length;
@@ -81,7 +81,7 @@ export default function ItineraryEditor({
                       type="button"
                       onClick={() => form.moveDay(day.id, "up")}
                       disabled={dayIndex === 0}
-                      className="tp-chip-shadow inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-bold text-muted-2 outline-offset-2 outline-brand-500 hover:border-brand-500/40 hover:text-brand-700 focus-visible:outline-2 disabled:cursor-not-allowed disabled:border-transparent disabled:bg-surface-2 disabled:text-[#c3ced5] disabled:hover:text-[#c3ced5]"
+                      className="tp-chip-shadow inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-bold text-muted-2 outline-offset-2 outline-brand-500 hover:border-brand-500/40 hover:text-brand-700 focus-visible:outline-2 disabled:cursor-not-allowed disabled:border-transparent disabled:bg-surface-2 disabled:text-[#c3ced5] disabled:hover:text-[#c3ced5] lg:px-3.5 lg:py-2 lg:text-[13px]"
                     >
                       <ArrowUpIcon size={13} />
                       <span className="sr-only sm:not-sr-only">
@@ -92,7 +92,7 @@ export default function ItineraryEditor({
                       type="button"
                       onClick={() => form.moveDay(day.id, "down")}
                       disabled={dayIndex === form.days.length - 1}
-                      className="tp-chip-shadow inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-bold text-muted-2 outline-offset-2 outline-brand-500 hover:border-brand-500/40 hover:text-brand-700 focus-visible:outline-2 disabled:cursor-not-allowed disabled:border-transparent disabled:bg-surface-2 disabled:text-[#c3ced5] disabled:hover:text-[#c3ced5]"
+                      className="tp-chip-shadow inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-bold text-muted-2 outline-offset-2 outline-brand-500 hover:border-brand-500/40 hover:text-brand-700 focus-visible:outline-2 disabled:cursor-not-allowed disabled:border-transparent disabled:bg-surface-2 disabled:text-[#c3ced5] disabled:hover:text-[#c3ced5] lg:px-3.5 lg:py-2 lg:text-[13px]"
                     >
                       <ArrowDownIcon size={13} />
                       <span className="sr-only sm:not-sr-only">
@@ -102,7 +102,7 @@ export default function ItineraryEditor({
                     <button
                       type="button"
                       onClick={() => form.removeDay(day.id)}
-                      className="tp-chip-shadow inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-bold text-muted-2 outline-offset-2 outline-brand-500 hover:border-danger/40 hover:bg-danger/8 hover:text-danger focus-visible:outline-2"
+                      className="tp-chip-shadow inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-bold text-muted-2 outline-offset-2 outline-brand-500 hover:border-danger/40 hover:bg-danger/8 hover:text-danger focus-visible:outline-2 lg:px-3.5 lg:py-2 lg:text-[13px]"
                     >
                       <TrashIcon size={13} />
                       <span className="sr-only sm:not-sr-only">
@@ -112,8 +112,8 @@ export default function ItineraryEditor({
                   </div>
                 }
               >
-                <div className="flex flex-col gap-4 px-3.5 pb-2 pt-4 sm:px-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-4 px-3.5 pb-2 pt-4 sm:px-4 lg:gap-5 lg:px-5 lg:pb-3 lg:pt-5">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:gap-5">
                     <Field
                       id={`edit-day-${day.id}-title`}
                       label="Day title"
@@ -139,11 +139,11 @@ export default function ItineraryEditor({
                   </div>
 
                   {day.stops.length === 0 ? (
-                    <p className="rounded-2xl border border-dashed border-line bg-surface-3 px-4 py-6 text-center text-[13px] text-muted">
+                    <p className="rounded-2xl border border-dashed border-line bg-surface-3 px-4 py-6 text-center text-[13px] text-muted lg:py-8 lg:text-[14px]">
                       No stops in this day yet.
                     </p>
                   ) : (
-                    <ul className="flex list-none flex-col gap-3.5">
+                    <ul className="flex list-none flex-col gap-3.5 lg:gap-4">
                       {day.stops.map((stop, stopIndex) => (
                         <StopEditor
                           key={stop.id}
@@ -168,7 +168,7 @@ export default function ItineraryEditor({
                     <button
                       type="button"
                       onClick={() => form.addStop(day.id)}
-                      className="tp-btn-shadow inline-flex items-center gap-2 rounded-full border border-[#d5e2ea] bg-white px-4 py-2.5 text-[13.5px] font-bold text-brand-700 outline-offset-2 outline-brand-500 hover:border-brand-700 hover:bg-brand-700 hover:text-white focus-visible:outline-2"
+                      className="tp-btn-shadow inline-flex items-center gap-2 rounded-full border border-[#d5e2ea] bg-white px-4 py-2.5 text-[13.5px] font-bold text-brand-700 outline-offset-2 outline-brand-500 hover:border-brand-700 hover:bg-brand-700 hover:text-white focus-visible:outline-2 lg:px-5 lg:py-3 lg:text-[14.5px]"
                     >
                       <PlusIcon size={15} />
                       Add stop to {label}

@@ -26,23 +26,23 @@ export default function CreateGuideForm({
       : undefined;
 
   return (
-    <div className="mx-auto flex w-full max-w-[860px] flex-col gap-8 px-5 py-8 sm:px-8 sm:py-10">
+    <div className="mx-auto flex w-full max-w-[860px] flex-col gap-8 px-5 py-8 sm:px-8 sm:py-10 lg:max-w-[1040px] lg:gap-10 lg:px-10 lg:py-14 xl:max-w-[1160px]">
       <section
         aria-labelledby="basics-heading"
-        className="rounded-2xl border border-line bg-white p-5 shadow-[0_18px_40px_-32px_rgba(20,52,78,.7)] sm:p-7"
+        className="rounded-2xl border border-line bg-white p-5 shadow-[0_18px_40px_-32px_rgba(20,52,78,.7)] sm:p-7 lg:p-9"
       >
         <h2
           id="basics-heading"
-          className="text-[20px] font-extrabold tracking-[-.024em] text-ink-soft"
+          className="text-[20px] font-extrabold tracking-[-.024em] text-ink-soft lg:text-[24px]"
         >
           Basics
         </h2>
-        <p className="mt-1 text-[13.5px] text-muted">
+        <p className="mt-1 text-[13.5px] text-muted lg:mt-1.5 lg:text-[15px]">
           The hero, the opening paragraph and the four numbers at the top of the
           guide.
         </p>
 
-        <div className="mt-5 flex flex-col gap-4">
+        <div className="mt-5 flex flex-col gap-4 lg:mt-6 lg:gap-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
               id="hero-title"
@@ -135,19 +135,19 @@ export default function CreateGuideForm({
 
       <section
         aria-labelledby="tips-heading"
-        className="rounded-2xl border border-line bg-white p-5 shadow-[0_18px_40px_-32px_rgba(20,52,78,.7)] sm:p-7"
+        className="rounded-2xl border border-line bg-white p-5 shadow-[0_18px_40px_-32px_rgba(20,52,78,.7)] sm:p-7 lg:p-9"
       >
         <h2
           id="tips-heading"
-          className="text-[20px] font-extrabold tracking-[-.024em] text-ink-soft"
+          className="text-[20px] font-extrabold tracking-[-.024em] text-ink-soft lg:text-[24px]"
         >
           General tips
         </h2>
-        <p className="mt-1 text-[13.5px] text-muted">
+        <p className="mt-1 text-[13.5px] text-muted lg:mt-1.5 lg:text-[15px]">
           The bulleted advice that sits above the first day.
         </p>
 
-        <div className="mt-5">
+        <div className="mt-5 lg:mt-6">
           <ListInput
             id="general-tips-input"
             label="Add a tip"
@@ -161,7 +161,7 @@ export default function CreateGuideForm({
         </div>
       </section>
 
-      <section className="rounded-2xl border border-line bg-white p-5 shadow-[0_18px_40px_-32px_rgba(20,52,78,.7)] sm:p-7">
+      <section className="rounded-2xl border border-line bg-white p-5 shadow-[0_18px_40px_-32px_rgba(20,52,78,.7)] sm:p-7 lg:p-9">
         <ItineraryEditor form={form} />
       </section>
     </div>

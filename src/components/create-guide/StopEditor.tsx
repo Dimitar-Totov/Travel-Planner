@@ -69,7 +69,7 @@ function IconButton({
       disabled={disabled}
       aria-label={label}
       title={label}
-      className={`inline-flex h-8 w-8 items-center justify-center rounded-full border border-line bg-white outline-offset-2 outline-brand-500 transition-colors focus-visible:outline-2 disabled:cursor-not-allowed disabled:border-transparent disabled:bg-surface-2 disabled:text-[#c3ced5] ${
+      className={`inline-flex h-8 w-8 items-center justify-center rounded-full border border-line bg-white outline-offset-2 outline-brand-500 transition-colors focus-visible:outline-2 disabled:cursor-not-allowed disabled:border-transparent disabled:bg-surface-2 disabled:text-[#c3ced5] lg:h-9 lg:w-9 ${
         danger
           ? "text-muted-2 hover:border-danger/40 hover:bg-danger/10 hover:text-danger"
           : "text-muted-2 hover:border-brand-500/40 hover:bg-brand-500/10 hover:text-brand-700"
@@ -117,7 +117,7 @@ export default function StopEditor({
   }
 
   return (
-    <li className="rounded-2xl border border-line bg-white p-4 shadow-[0_10px_26px_-22px_rgba(20,52,78,.55)] sm:p-5">
+    <li className="rounded-2xl border border-line bg-white p-4 shadow-[0_10px_26px_-22px_rgba(20,52,78,.55)] sm:p-5 lg:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <StopPin
@@ -125,12 +125,12 @@ export default function StopEditor({
             tone={stop.highlight ? "gold" : "brand"}
             size={22}
           />
-          <h4 className="min-w-0 truncate text-[15px] font-bold tracking-[-.01em] text-ink">
+          <h4 className="min-w-0 truncate text-[15px] font-bold tracking-[-.01em] text-ink lg:text-[17px]">
             {heading}
           </h4>
         </div>
 
-        <div className="flex flex-none items-center gap-1.5">
+        <div className="flex flex-none items-center gap-1.5 lg:gap-2">
           <IconButton
             label={`Move ${heading} up`}
             onClick={() => onMove("up")}
@@ -151,7 +151,7 @@ export default function StopEditor({
         </div>
       </div>
 
-      <div className="mt-4 flex flex-col gap-4">
+      <div className="mt-4 flex flex-col gap-4 lg:mt-5 lg:gap-5">
         <Field
           id={`${base}-name`}
           label="Stop name"
@@ -162,19 +162,21 @@ export default function StopEditor({
         />
 
         <div>
-          <span className="text-[13px] font-semibold text-ink">Location</span>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
+          <span className="text-[13px] font-semibold text-ink lg:text-[14px]">
+            Location
+          </span>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2.5 lg:gap-3">
             <button
               type="button"
               onClick={onOpenPicker}
-              className="tp-btn-shadow inline-flex items-center gap-2 rounded-full border border-[#d5e2ea] bg-white px-4 py-2.5 text-[13.5px] font-bold text-brand-700 outline-offset-2 outline-brand-500 hover:border-brand-700 hover:bg-brand-700 hover:text-white focus-visible:outline-2"
+              className="tp-btn-shadow inline-flex items-center gap-2 rounded-full border border-[#d5e2ea] bg-white px-4 py-2.5 text-[13.5px] font-bold text-brand-700 outline-offset-2 outline-brand-500 hover:border-brand-700 hover:bg-brand-700 hover:text-white focus-visible:outline-2 lg:px-5 lg:py-3 lg:text-[14.5px]"
             >
               <MapPinIcon size={15} />
               {stop.placed ? "Change location" : "Set location on map"}
             </button>
 
             <span
-              className={`inline-flex items-center rounded-full px-3 py-1.5 text-[12.5px] font-bold tabular-nums ${
+              className={`inline-flex items-center rounded-full px-3 py-1.5 text-[12.5px] font-bold tabular-nums lg:px-3.5 lg:py-2 lg:text-[13.5px] ${
                 stop.placed
                   ? "bg-success/10 text-success"
                   : "bg-gold-warm/12 text-gold-deep"
@@ -186,7 +188,7 @@ export default function StopEditor({
             </span>
           </div>
           {!stop.placed && (
-            <p className="mt-1.5 text-[12px] text-muted">
+            <p className="mt-1.5 text-[12px] text-muted lg:text-[13px]">
               Until you place it, this stop borrows the previous stop&rsquo;s
               position on the preview map.
             </p>
@@ -240,15 +242,15 @@ export default function StopEditor({
         />
 
         <div>
-          <span className="text-[13px] font-semibold text-ink">
+          <span className="text-[13px] font-semibold text-ink lg:text-[14px]">
             Price level (optional)
           </span>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
+          <div className="mt-1.5 flex flex-wrap gap-1.5 lg:gap-2">
             <button
               type="button"
               onClick={() => onUpdate({ priceLevel: undefined })}
               aria-pressed={stop.priceLevel === undefined}
-              className={`tp-chip-shadow rounded-full border px-3.5 py-2 text-[12.5px] font-bold outline-offset-2 outline-brand-500 focus-visible:outline-2 ${
+              className={`tp-chip-shadow rounded-full border px-3.5 py-2 text-[12.5px] font-bold outline-offset-2 outline-brand-500 focus-visible:outline-2 lg:px-4 lg:py-2.5 lg:text-[13.5px] ${
                 stop.priceLevel === undefined
                   ? "border-brand-500 bg-brand-500/12 text-brand-700"
                   : "border-line bg-white text-muted-2 hover:border-brand-500/40"
@@ -263,7 +265,7 @@ export default function StopEditor({
                 onClick={() => onUpdate({ priceLevel: level })}
                 aria-pressed={stop.priceLevel === level}
                 aria-label={`Price level ${level} of 4`}
-                className={`tp-chip-shadow rounded-full border px-3.5 py-2 text-[12.5px] font-bold outline-offset-2 outline-brand-500 focus-visible:outline-2 ${
+                className={`tp-chip-shadow rounded-full border px-3.5 py-2 text-[12.5px] font-bold outline-offset-2 outline-brand-500 focus-visible:outline-2 lg:px-4 lg:py-2.5 lg:text-[13.5px] ${
                   stop.priceLevel === level
                     ? "border-success bg-success/10 text-success"
                     : "border-line bg-white text-muted-2 hover:border-brand-500/40"
@@ -277,14 +279,14 @@ export default function StopEditor({
           </div>
         </div>
 
-        <label className="flex cursor-pointer items-start gap-2.5 rounded-2xl bg-gold-warm/[.07] px-3.5 py-3 ring-1 ring-inset ring-gold-warm/25">
+        <label className="flex cursor-pointer items-start gap-2.5 rounded-2xl bg-gold-warm/[.07] px-3.5 py-3 ring-1 ring-inset ring-gold-warm/25 lg:gap-3 lg:px-4 lg:py-3.5">
           <input
             type="checkbox"
             checked={stop.highlight ?? false}
             onChange={(event) => onUpdate({ highlight: event.target.checked })}
-            className="mt-0.5 h-4 w-4 flex-none accent-[var(--color-gold-warm)]"
+            className="mt-0.5 h-4 w-4 flex-none accent-[var(--color-gold-warm)] lg:h-[18px] lg:w-[18px]"
           />
-          <span className="text-[13px] leading-[1.5] text-gold-deep">
+          <span className="text-[13px] leading-[1.5] text-gold-deep lg:text-[14px]">
             <span className="font-bold">Highlight this stop.</span> The
             day&rsquo;s standout — its row and its pin render in gold instead of
             brand blue.
@@ -294,12 +296,12 @@ export default function StopEditor({
         {/* A day's first stop has nothing to arrive from, which is exactly the
             rule `DaySection` uses when it decides whether to draw a connector. */}
         {index > 0 && (
-          <fieldset className="rounded-2xl border border-line bg-surface-3 p-3.5">
-            <legend className="px-1.5 text-[12.5px] font-bold uppercase tracking-[.08em] text-muted-2">
+          <fieldset className="rounded-2xl border border-line bg-surface-3 p-3.5 lg:p-4">
+            <legend className="px-1.5 text-[12.5px] font-bold uppercase tracking-[.08em] text-muted-2 lg:text-[13px]">
               Getting here
             </legend>
 
-            <div className="flex flex-col gap-3.5 sm:flex-row">
+            <div className="flex flex-col gap-3.5 sm:flex-row lg:gap-4">
               <div className="sm:w-[38%]">
                 <SelectField
                   id={`${base}-transfer-mode`}
