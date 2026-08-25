@@ -1,5 +1,12 @@
 import type { AgentResponse, ChatMessage } from "@/lib/openrouter/types";
 
+/**
+ * Hard ceiling on a single completion. Generous on purpose: a full itinerary
+ * takes ~45s from `itinerary-planner`, so this is a stall guard, not a
+ * latency budget. Callers all treat a throw as "fall back", never as fatal.
+ */
+const REQUEST_TIMEOUT_MS = 120_000;
+
 export class OpenRouterError extends Error {
   status: number;
 
@@ -18,6 +25,15 @@ export interface ChatCompletionParams {
   stream?: boolean;
   /** Requests strict JSON output when the underlying model supports it. */
   responseFormat?: "json_object";
+  /**
+   * `false` disables a reasoning model's hidden thinking pass entirely.
+   *
+   * Note this is NOT the same as OpenRouter's `reasoning.exclude`, which only
+   * strips the reasoning from the *response* — the tokens are still generated,
+   * still billed against `max_tokens`, and still leak into `message.content`
+   * on some models. `{ enabled: false }` is what actually stops it.
+   */
+  reasoning?: boolean;
 }
 
 interface OpenRouterChatCompletionResponse {
@@ -64,7 +80,14 @@ export async function createChatCompletion(
         ...(params.responseFormat
           ? { response_format: { type: params.responseFormat } }
           : {}),
+        ...(params.reasoning === false
+          ? { reasoning: { enabled: false } }
+          : {}),
       }),
+      // A reasoning model with a large `max_tokens` can run for well over a
+      // minute; without a ceiling a stalled upstream would hang the render
+      // indefinitely, since `/plan` awaits this during a server render.
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (err) {
     throw new OpenRouterError(

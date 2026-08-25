@@ -1,6 +1,7 @@
 "use client";
 
 import type { GuideStop } from "@/lib/guideItineraries";
+import type { DestinationImage } from "@/lib/unsplash";
 import { BookmarkIcon } from "@/components/icons";
 import StopPin from "./StopPin";
 import StopThumb from "./StopThumb";
@@ -24,6 +25,13 @@ interface StopRowProps {
   selected: boolean;
   /** Zebra tint. Highlighted stops ignore it and keep their warm card. */
   alternate: boolean;
+  /**
+   * Photo for the row's thumbnail. `null`/omitted keeps the gradient
+   * placeholder. Deliberately *no* attribution overlay here — at 88px tall on
+   * `lg` there is no room for a legible credit; the About tab's larger image is
+   * where this stop's photographer is credited.
+   */
+  thumbImage?: DestinationImage | null;
   onSelect: () => void;
   onToggleSaved: () => void;
 }
@@ -45,6 +53,7 @@ export default function StopRow({
   saved,
   selected,
   alternate,
+  thumbImage,
   onSelect,
   onToggleSaved,
 }: StopRowProps) {
@@ -148,6 +157,8 @@ export default function StopRow({
         <StopThumb
           name={stop.name}
           tone={tone}
+          image={thumbImage}
+          sizes="(min-width: 1280px) 170px, (min-width: 1024px) 132px, (min-width: 640px) 170px, 100vw"
           className="h-[128px] w-full flex-none sm:h-[112px] sm:w-[170px] lg:h-[88px] lg:w-[132px] xl:h-[112px] xl:w-[170px]"
         />
       </div>

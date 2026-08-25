@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import type { GuideItinerary, GuideStop } from "@/lib/guideItineraries";
+import type { GuideDay, GuideStop } from "@/lib/itinerary";
 
 /** The desktop split point. Kept here because the hook has to answer "is the
  *  map on screen right now?" inside an event handler, where the CSS `lg:`
@@ -63,7 +63,8 @@ export interface GuideDetailState {
 }
 
 /**
- * Every piece of client state on `/destinations/guide/[guideId]/details`.
+ * Every piece of client state behind the two-pane itinerary template — the
+ * guide detail page and `/plan` alike.
  *
  * It lives in one hook because all of it is shared across the desktop split:
  * the reading column owns the accordions and the day filter, the map pane owns
@@ -71,11 +72,15 @@ export interface GuideDetailState {
  * day header filters the map, a pin selects a row, a row flies the map. Keeping
  * it here means neither pane has to own the other.
  *
+ * It takes the `GuideDay[]` rather than a whole `GuideItinerary` because the
+ * days are the only thing it ever read, and an AI-generated `TripPlan` carries
+ * the same day list without any of a community guide's authorship fields.
+ *
  * There is no backend behind any of it. Saved stops, the like/follow toggles in
  * the author bar, and the day filter are all in-memory only and reset on
  * navigation; persisting them needs an accounts API that does not exist yet.
  */
-export function useGuideDetail(itinerary: GuideItinerary): GuideDetailState {
+export function useGuideDetail(days: GuideDay[]): GuideDetailState {
   // Day 1 open, the rest closed — enough to show what the page is without
   // dumping a fourteen-day itinerary on the reader at once.
   const [openDays, setOpenDays] = useState<ReadonlySet<number>>(
@@ -91,7 +96,7 @@ export function useGuideDetail(itinerary: GuideItinerary): GuideDetailState {
 
   const allStops = useMemo<ShownStop[]>(
     () =>
-      itinerary.days.flatMap((day, dayIndex) =>
+      days.flatMap((day, dayIndex) =>
         day.stops.map((stop, stopIndex) => ({
           key: `${dayIndex}-${stopIndex}`,
           stop,
@@ -101,7 +106,7 @@ export function useGuideDetail(itinerary: GuideItinerary): GuideDetailState {
           dayTitle: day.title,
         })),
       ),
-    [itinerary],
+    [days],
   );
 
   const shownStops = useMemo(
@@ -200,7 +205,7 @@ export function useGuideDetail(itinerary: GuideItinerary): GuideDetailState {
 
     dayFilter,
     dayFilterLabel:
-      dayFilter === null ? null : (itinerary.days[dayFilter]?.title ?? null),
+      dayFilter === null ? null : (days[dayFilter]?.title ?? null),
     toggleDayFilter,
     clearDayFilter: useCallback(() => setDayFilter(null), []),
 

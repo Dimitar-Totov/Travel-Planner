@@ -20,7 +20,7 @@ import StopPin from "./StopPin";
 /**
  * CARTO Voyager, as a hand-written raster style.
  *
- * The shared `RouteMap` points at MapLibre's demo vector style, which is an
+ * The now-deleted `RouteMap` pointed at MapLibre's demo vector style, an
  * outline-only developer basemap — fine behind four country-scale pins, useless
  * behind a walking itinerary where the reader needs streets, parks and the
  * river. Voyager is the basemap the design was drawn on.
@@ -115,11 +115,11 @@ interface GuideMapProps {
  * The map pane: numbered pins for every shown stop, a dashed route through
  * them, and the two floating chips.
  *
- * Fitting, rather than averaging: `RouteMap` centres on the mean coordinate and
- * picks a zoom from a span lookup, which is good enough for a four-city country
- * hop. Here a day can be five stops 300 m apart or a day trip to Versailles and
- * back, so the map asks MapLibre for a real `fitBounds` every time the shown
- * set changes.
+ * Fitting, rather than averaging: the old `RouteMap` centred on the mean
+ * coordinate and picked a zoom from a span lookup, which was good enough for a
+ * four-city country hop. Here a day can be five stops 300 m apart or a day trip
+ * to Versailles and back, so the map asks MapLibre for a real `fitBounds` every
+ * time the shown set changes.
  */
 export default function GuideMap({
   stops,

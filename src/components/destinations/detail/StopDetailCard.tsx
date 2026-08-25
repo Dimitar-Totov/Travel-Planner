@@ -10,6 +10,8 @@ import {
   MapPinIcon,
 } from "@/components/icons";
 import type { ShownStop } from "@/lib/hooks/useGuideDetail";
+import type { DestinationImage } from "@/lib/unsplash";
+import PhotoCredit from "@/components/shared/PhotoCredit";
 import StopPin from "./StopPin";
 import StopThumb from "./StopThumb";
 
@@ -45,6 +47,13 @@ interface StopDetailCardProps {
   /** 0-based position of `selected` within the shown stops. */
   index: number;
   total: number;
+  /**
+   * The About tab's photograph of `selected` — a *different* shot of the same
+   * stop from the one in its row thumbnail. `null` (no key, no second result,
+   * a failed call) falls back to the gradient placeholder, and takes the
+   * attribution line with it.
+   */
+  aboutImage: DestinationImage | null;
   saved: boolean;
   onToggleSaved: () => void;
   onPrev: () => void;
@@ -98,6 +107,7 @@ function StopCardBody({
   selected,
   index,
   total,
+  aboutImage,
   saved,
   onToggleSaved,
   onPrev,
@@ -259,11 +269,28 @@ function StopCardBody({
               </div>
             </div>
 
-            <StopThumb
-              name={stop.name}
-              tone={stop.highlight ? "gold" : "brand"}
-              className="hidden h-[132px] w-[150px] flex-none rounded-[13px] sm:block"
-            />
+            {/* The photo and its credit are one block: the attribution sits
+                under the image at the card's smallest type size, where a
+                frosted hero pill would have nothing to sit over. */}
+            <div className="hidden w-[150px] flex-none sm:block">
+              <StopThumb
+                name={stop.name}
+                tone={stop.highlight ? "gold" : "brand"}
+                image={aboutImage}
+                sizes="150px"
+                className="h-[132px] w-full rounded-[13px]"
+              />
+              {aboutImage?.photographer && (
+                <div className="mt-1.5">
+                  <PhotoCredit
+                    placement="inline"
+                    photographer={aboutImage.photographer}
+                    photographerUrl={aboutImage.photographerUrl}
+                    unsplashUrl={aboutImage.unsplashUrl}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         )}
 

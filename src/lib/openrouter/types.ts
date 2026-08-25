@@ -11,6 +11,14 @@ export interface AgentConfig {
   maxTokens?: number;
   /** Default: false */
   stream?: boolean;
+  /**
+   * Set `false` on a reasoning model to stop it burning hidden reasoning
+   * tokens before the answer. Measured on `itinerary-planner`: leaving it on
+   * cost 6076 of an 8000-token budget and truncated the JSON mid-object;
+   * turning it off cut the call from 97s to 43s and completed cleanly.
+   * Omitted = leave the model's default alone.
+   */
+  reasoning?: boolean;
 }
 
 export interface ChatMessage {

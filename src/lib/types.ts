@@ -1,10 +1,15 @@
 /**
- * Shared "Plan" contract for Travel Planner.
+ * The original "Plan" contract — now an internal shape, no longer what the UI
+ * renders.
  *
- * This is the seam between the UI and the (currently mock) planning backend at
- * `POST /api/plan`. A single sentence like "5 days in Italy with a €1,000
- * budget" maps to one `Plan`. Keep this file the single source of truth — both
- * `src/lib/plans.ts` (data) and every PlanBoard component depend on it.
+ * `/plan` and `/api/plan` return a `TripPlan` (`src/lib/tripPlan.ts`) built by
+ * `src/lib/tripPlanner.ts`, and the PlanBoard components that consumed this
+ * type are gone. What survives is the deterministic mock in `src/lib/plans.ts`
+ * and `src/lib/demo.ts`, which `tripPlanner.ts` uses two ways: as the
+ * destination guess feeding its day/budget parsing, and as the source of the
+ * offline fallback plan when every AI path fails.
+ *
+ * New work should target `TripPlan`, not this.
  */
 
 export type PlanStatus = "ready" | "planning";
