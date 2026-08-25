@@ -45,8 +45,9 @@ AI planning layer and rendered through the **same detail template as a community
   from the client via the `useAgent` hook (`src/lib/hooks/useAgent.ts`).
 
 Plus the auth routes — `/sign-in`, `/sign-up`, `/api/auth/[...nextauth]`, `POST /api/users`
-— described under "Auth" below, and the destinations routes — `/destinations`,
-`/destinations/guide/[guideId]/details` — described under "Destinations" below.
+— described under "Auth" below, the destinations routes — `/destinations`,
+`/destinations/guide/[guideId]/details` — described under "Destinations" below, and
+`/create-guide` — described under "Create Guide" below.
 
 ### Data layer (`src/lib/`)
 
@@ -253,9 +254,51 @@ data modules:
   breakpoint isn't observable. None of the saved/like/follow toggles persist — no accounts
   API exists yet, so they reset on navigation.
 
+### Create Guide (`src/app/create-guide/`, `src/components/create-guide/`, `src/lib/hooks/useCreateGuideForm.ts`)
+
+The authoring counterpart to the destinations detail page — write a guide, preview it
+through the exact same template a reader would see. There is still no guides-write API, so
+the whole draft is **in-memory only** (lost on reload, like every other piece of unpersisted
+state in this app) and Publish is a hard-`disabled` button with an explanatory `title`,
+matching the convention `GuideAuthorBar`'s Comments button and `GuideMap`'s Export button
+already set for a not-yet-built backend feature. **Not gated** — no `PROTECTED_PATHS` entry
+and no auth modal; gating it behind sign-in and a future `tourist-guide` role is a TODO in
+`README.md`, not implemented.
+
+- `useCreateGuideForm.ts` — every piece of draft state in one hook, following
+  `useGuideDetail`'s flat state-plus-actions convention. Holds the guide-level fields
+  (title/accent/tags/blurb/intro/currency/bestTime/coverImage), general tips, and
+  `DraftDay[]` (`DraftDay`/`DraftStop` extend `GuideDay`/`GuideStop` with a stable `id` —
+  indices shift on reorder/remove and would re-key the subtree mid-edit). `DraftStop` also
+  carries `placed: boolean`, since `GuideStop.lat`/`lng` are non-optional numbers and "no
+  location chosen yet" needs its own flag; a freshly added stop is seeded with the nearest
+  already-placed stop's coordinates purely so the preview map has somewhere sane to draw it
+  instead of zooming out to fit a pin at `0,0`. `asGuideDays` strips the editor-only fields
+  down to a real `GuideDay[]` for the preview.
+- `CreateGuidePageShell.tsx` — the `"use client"` boundary `page.tsx` hands `nav`/`footer`
+  slots into. Owns the Edit/Preview mode switch and the Publish button. The
+  `lg:h-screen lg:overflow-hidden` wrapper the real guide-detail page applies unconditionally
+  is applied here **only while previewing** — it would trap the form's own scroll otherwise.
+- `CreateGuidePreview.tsx` — the **third** adapter onto `ItineraryDetailView`, alongside
+  `GuideDetailView` (a published guide) and `PlanDetailView` (an AI plan): it spreads the
+  live draft onto the identical shared template, so what an author sees is the real render,
+  not an approximation of it. `byline` is a small local "Draft preview" strip rather than a
+  repurposed `GuideAuthorBar` (which hard-requires a real `DestinationGuide`); `notice` is a
+  gold `PlanFallbackNotice`-style note that also counts any unplaced stops.
+- `LocationPickerModal.tsx` — click-to-place coordinates for one stop, because a transposed
+  lat/lng digit is invisible in a text field and catastrophic on the map. Renders its own
+  lean MapLibre `<Map>` rather than reusing `GuideMap` (whose whole job is selecting
+  _existing_ pins via `fitBounds`+route line+stop card — bolting a placement mode onto it
+  would compromise the two routes that already depend on it as-is). Shares `MAP_STYLE` with
+  `GuideMap.tsx` via `components/destinations/detail/mapStyle.ts` so the CARTO tile config
+  has exactly one source of truth. Click or drag the marker to set a point; every
+  already-placed stop in the draft renders as dimmed context so an author can see what they've
+  placed so far. **Only ever mounted while Edit mode is active and a stop is targeted** —
+  see the "Map" section below for why that matters.
+
 ### Component layout (`src/components/`)
 
-Five groups, each consumed by a specific layer above:
+Six groups, each consumed by a specific layer above:
 
 - `landing/` — `Hero`, `HeroGlobe`, `PromptBox`, `Features`, `CtaBand`. `PromptBox` is the
   only client component on `/`; submitting or picking a chip does `router.push("/plan?q=…")`.
@@ -289,15 +332,30 @@ Five groups, each consumed by a specific layer above:
   `StopRow`, `StopThumb`, `StopPin`, `TransferConnector`, `StopDetailCard`, `GuideMap`,
   `MapOverlaySheet`, `GuideDetailView`) for the guide detail split view. See "Destinations"
   above.
+- `create-guide/` — `CreateGuidePageShell`, `CreateGuideForm`, `ItineraryEditor`,
+  `StopEditor`, `ListInput`, `FormControls`, `LocationPickerModal`, `CreateGuidePreview` for
+  the `/create-guide` editor + preview. See "Create Guide" above.
 
 ### Map
 
-`GuideMap.tsx` (destinations detail) renders a live MapLibre map via
-`@vis.gl/react-maplibre`, and is now the app's **only** map — `/plan` reaches it through the
-shared detail template. `package.json` depends on `react-map-gl` (a
-meta-package that re-exports either `@vis.gl/react-mapbox` or `@vis.gl/react-maplibre`), but
-the code imports `@vis.gl/react-maplibre` directly — import from that package, not
-`react-map-gl`, when touching either map.
+Two MapLibre surfaces, both via `@vis.gl/react-maplibre` — never `react-map-gl`, the
+meta-package `package.json` depends on but the code never imports directly:
+
+- `destinations/detail/GuideMap.tsx` — read-only: numbered pins for an itinerary's existing
+  stops, `fitBounds` framing, click-to-select. Reached by both `/plan` and
+  `/destinations/guide/[guideId]/details` through the shared detail template, and by
+  `create-guide/CreateGuidePreview.tsx` the same way.
+- `create-guide/LocationPickerModal.tsx` — the one click-to-**place** surface in the app,
+  used to set a draft stop's `lat`/`lng`. A deliberately separate, leaner map rather than a
+  mode bolted onto `GuideMap` (see "Create Guide" above); it shares `GuideMap`'s tile config
+  via `destinations/detail/mapStyle.ts` so the two never drift.
+
+Both surfaces hold the same standing rule — **exactly one MapLibre instance mounted at a
+time** — because a second WebGL context alongside the first is wasted GPU memory for no
+visible gain. `ItineraryDetailView` enforces it by construction (desktop pane vs. mobile
+overlay, never both); `create-guide/CreateGuidePageShell.tsx` enforces it by gating the
+picker on Edit mode, since Preview mode already mounts `GuideMap` through
+`ItineraryDetailView`.
 
 ### Styling
 
