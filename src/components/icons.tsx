@@ -167,3 +167,198 @@ export function SparkleIcon({ size = 16, ...rest }: IconProps) {
     </svg>
   );
 }
+
+export function ChevronDownIcon(props: IconProps) {
+  return (
+    <Stroke strokeWidth={2.2} {...props}>
+      <path d="M6 9l6 6 6-6" />
+    </Stroke>
+  );
+}
+
+export function ChevronLeftIcon(props: IconProps) {
+  return (
+    <Stroke strokeWidth={2.4} {...props}>
+      <path d="M14 6l-6 6 6 6" />
+    </Stroke>
+  );
+}
+
+export function ChevronRightIcon(props: IconProps) {
+  return (
+    <Stroke strokeWidth={2.4} {...props}>
+      <path d="M10 6l6 6-6 6" />
+    </Stroke>
+  );
+}
+
+export function CloseIcon(props: IconProps) {
+  return (
+    <Stroke strokeWidth={2.4} {...props}>
+      <path d="M6 6l12 12" />
+      <path d="M18 6L6 18" />
+    </Stroke>
+  );
+}
+
+/** Share sheet glyph — a tray with an arrow lifting out of it. */
+export function ShareIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7" />
+      <path d="M12 3v12" />
+      <path d="M8 7l4-4 4 4" />
+    </Stroke>
+  );
+}
+
+/** Same tray, arrow pointing in — used for the map's Export affordance. */
+export function DownloadIcon(props: IconProps) {
+  return (
+    <Stroke strokeWidth={2.1} {...props}>
+      <path d="M12 3v13" />
+      <path d="M7 11l5 5 5-5" />
+      <path d="M4 20h16" />
+    </Stroke>
+  );
+}
+
+export function CommentIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.5 9.5 0 0 1-2.8-.4L4 21l1.5-4.2A8.3 8.3 0 0 1 3 11.5 8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z" />
+    </Stroke>
+  );
+}
+
+/** Outline ribbon. `filled` swaps to a solid silhouette for the saved state —
+ *  one component so the two states share the exact same geometry and the pill
+ *  never shifts by a pixel when it toggles. */
+export function BookmarkIcon({
+  filled = false,
+  ...rest
+}: IconProps & { filled?: boolean }) {
+  const path = "M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z";
+  if (filled) {
+    const { size = 18, ...svgRest } = rest;
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden="true"
+        {...svgRest}
+      >
+        <path d={path} />
+      </svg>
+    );
+  }
+  return (
+    <Stroke strokeWidth={2.1} {...rest}>
+      <path d={path} />
+    </Stroke>
+  );
+}
+
+/* ---- Transfer modes (guide detail stop connectors) ----------------------
+   One icon per `TransferMode` in `lib/guideItineraries.ts`, except "flight",
+   which reuses `PlaneIcon` above. Drawn on the same 24x24 Lucide grid as the
+   rest of the set so they sit optically level in a 22px circle. */
+
+export function WalkIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <circle cx="13" cy="4" r="2" />
+      <path d="M11 21l-1-5-3-3 2-6" />
+      <path d="M9 7l4 2 3 3" />
+      <path d="M7 21l3-5" />
+    </Stroke>
+  );
+}
+
+export function MetroIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <rect x="5" y="3" width="14" height="14" rx="4" />
+      <path d="M5 11h14" />
+      <path d="M8.6 14.2h.01" />
+      <path d="M15.4 14.2h.01" />
+      <path d="M8 21l1.8-3" />
+      <path d="M16 21l-1.8-3" />
+    </Stroke>
+  );
+}
+
+export function TrainIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <rect x="4" y="3" width="16" height="13" rx="2.5" />
+      <path d="M4 10h16" />
+      <path d="M8.2 13.2h.01" />
+      <path d="M15.8 13.2h.01" />
+      <path d="M7 21l2.4-3" />
+      <path d="M17 21l-2.4-3" />
+      <path d="M4 18h16" />
+    </Stroke>
+  );
+}
+
+export function BusIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <rect x="3" y="4" width="18" height="12" rx="2.5" />
+      <path d="M3 10h18" />
+      <path d="M7.2 13.2h.01" />
+      <path d="M16.8 13.2h.01" />
+      <path d="M7 16v3" />
+      <path d="M17 16v3" />
+    </Stroke>
+  );
+}
+
+export function TramIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <rect x="6" y="4" width="12" height="13" rx="2.5" />
+      <path d="M6 10h12" />
+      <path d="M12 4V2" />
+      <path d="M9 21l1.6-4" />
+      <path d="M15 21l-1.6-4" />
+      <path d="M4 21h16" />
+    </Stroke>
+  );
+}
+
+export function CarIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <path d="M5 17a2 2 0 1 0 4 0 2 2 0 1 0-4 0" />
+      <path d="M15 17a2 2 0 1 0 4 0 2 2 0 1 0-4 0" />
+      <path d="M5 17H3v-5l2-5h9l4 5h3v5h-2" />
+      <path d="M9 17h6" />
+    </Stroke>
+  );
+}
+
+export function FerryIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <path d="M3 18.5c1.6 0 1.6 1.2 3.2 1.2s1.6-1.2 3.2-1.2 1.6 1.2 3.2 1.2 1.6-1.2 3.2-1.2 1.6 1.2 3.2 1.2" />
+      <path d="M4.5 15.5L6 10h12l1.5 5.5" />
+      <path d="M12 10V5" />
+      <path d="M9 5h6" />
+    </Stroke>
+  );
+}
+
+export function BikeIcon(props: IconProps) {
+  return (
+    <Stroke strokeWidth={1.9} {...props}>
+      <circle cx="5.5" cy="17.5" r="3.5" />
+      <circle cx="18.5" cy="17.5" r="3.5" />
+      <circle cx="15" cy="5" r="1" />
+      <path d="M12 17.5V14l-3-3 4-3 2 3h2" />
+    </Stroke>
+  );
+}
