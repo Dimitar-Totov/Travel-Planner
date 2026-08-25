@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { SparkleIcon, ArrowRightIcon, SpinnerIcon } from "@/components/icons";
+import AuthGateModal from "@/components/auth/AuthGateModal";
 import { CHIPS } from "@/lib/chips";
 
 const EXAMPLE = "I have 5 days in Italy with a €1,000 budget";
@@ -26,9 +27,14 @@ const CHIP_GROUPS = chunk(CHIPS, CHIP_GROUP_SIZE);
 /**
  * The hero's prompt — a real, editable search box styled to match the design.
  * Submitting (or picking a chip) routes to /plan?q=… where the mock backend
- * turns the sentence into a Plan.
+ * turns the sentence into a Plan — unless the visitor is signed out, in which
+ * case the sign-in gate goes up instead of the navigation.
  */
-export default function PromptBox() {
+export default function PromptBox({
+  isAuthenticated,
+}: {
+  isAuthenticated: boolean;
+}) {
   const router = useRouter();
   const [value, setValue] = useState("");
   const [groupIndex, setGroupIndex] = useState(0);
@@ -43,6 +49,9 @@ export default function PromptBox() {
   // control started it, so the spinner shows up where the user clicked.
   const [isPending, startTransition] = useTransition();
   const [pendingChip, setPendingChip] = useState<string | null>(null);
+
+  // Sign-in gate for signed-out visitors.
+  const [gateOpen, setGateOpen] = useState(false);
 
   // Auto-rotate the example chips every 5s, one full group at a time — no
   // manual controls. Paused for prefers-reduced-motion, same as the rest of
@@ -89,6 +98,12 @@ export default function PromptBox() {
   function planFor(query: string, chip: string | null = null) {
     if (isPending) return;
     const q = query.trim() || EXAMPLE;
+
+    if (!isAuthenticated) {
+      setGateOpen(true);
+      return;
+    }
+
     setPendingChip(chip);
     startTransition(() => {
       router.push(`/plan?q=${encodeURIComponent(q)}`);
@@ -199,6 +214,8 @@ export default function PromptBox() {
           );
         })}
       </div>
+
+      <AuthGateModal open={gateOpen} onClose={() => setGateOpen(false)} />
     </div>
   );
 }

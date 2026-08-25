@@ -3,6 +3,7 @@
 import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { SpinnerIcon } from "@/components/icons";
+import AuthGateModal from "@/components/auth/AuthGateModal";
 
 /** The four slots of the sentence the traveller is assembling. */
 type SlotId = "where" | "days" | "budget" | "style";
@@ -132,10 +133,18 @@ function SentenceSlot({
  * sentence and the CTA sends it through the same /plan?q=… route the hero
  * search box uses.
  */
-export default function SentenceBuilder() {
+export default function SentenceBuilder({
+  isAuthenticated,
+}: {
+  isAuthenticated: boolean;
+}) {
   const router = useRouter();
   const labelIdPrefix = useId();
   const [selection, setSelection] = useState<Selection>({});
+
+  // Both CTAs below are planning entry points, so both are gated for signed-out
+  // visitors; one modal instance serves them.
+  const [gateOpen, setGateOpen] = useState(false);
 
   // /plan waits on an AI-picked route before it can render, and this URL is
   // never prefetched, so the CTA owns the feedback until /plan's loading.tsx
@@ -150,6 +159,12 @@ export default function SentenceBuilder() {
   function planTrip() {
     if (!ready || isPending) return;
     const query = encodeURIComponent(buildQuery(selection));
+
+    if (!isAuthenticated) {
+      setGateOpen(true);
+      return;
+    }
+
     startTransition(() => {
       router.push(`/plan?q=${query}`);
     });
@@ -166,6 +181,12 @@ export default function SentenceBuilder() {
   }
 
   function surpriseMe() {
+    // Gated too — it's the other way into a plan.
+    if (!isAuthenticated) {
+      setGateOpen(true);
+      return;
+    }
+
     // Kept inside the handler: rolling dice during render would give the
     // server and the client two different sentences to hydrate.
     const next: Selection = {};
@@ -326,6 +347,8 @@ export default function SentenceBuilder() {
           </div>
         </div>
       </div>
+
+      <AuthGateModal open={gateOpen} onClose={() => setGateOpen(false)} />
     </div>
   );
 }
