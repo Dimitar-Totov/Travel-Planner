@@ -1,18 +1,18 @@
 import type { NextRequest } from "next/server";
-import { getPlanForQuery } from "@/lib/plans";
-import { withAiRoute } from "@/lib/aiRoute";
+import { buildTripPlan } from "@/lib/tripPlanner";
 
 /**
- * Trip-planning endpoint — backs onto `getPlanForQuery` (`src/lib/plans.ts`),
- * a deterministic stand-in for a future real planning + flights API, then
- * asks the `route-planner` agent to replace the mock route's cities with an
- * AI-picked itinerary (falling back to the mock route on any failure).
+ * Trip-planning endpoint — HTTP mirror of what `/plan` renders. Backs onto
+ * `buildTripPlan` (`src/lib/tripPlanner.ts`), which asks the
+ * `itinerary-planner` agent for a full day-by-day itinerary plus a live
+ * Unsplash hero photo, falling back to a deterministic offline `TripPlan` on
+ * any failure so this endpoint always returns 200 with a renderable plan.
  */
 
 /** GET /api/plan?q=<sentence> — sentence in the query string. */
 export async function GET(request: NextRequest): Promise<Response> {
   const query = request.nextUrl.searchParams.get("q") ?? "";
-  const plan = await withAiRoute(getPlanForQuery(query));
+  const plan = await buildTripPlan(query);
   return Response.json(plan, { status: 200 });
 }
 
@@ -41,6 +41,6 @@ export async function POST(request: NextRequest): Promise<Response> {
   const rawQuery = (body as Record<string, unknown>).query;
   const query = typeof rawQuery === "string" ? rawQuery : "";
 
-  const plan = await withAiRoute(getPlanForQuery(query));
+  const plan = await buildTripPlan(query);
   return Response.json(plan, { status: 200 });
 }

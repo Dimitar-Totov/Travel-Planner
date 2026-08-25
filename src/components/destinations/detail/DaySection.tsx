@@ -2,6 +2,7 @@
 
 import { Fragment } from "react";
 import type { GuideDay } from "@/lib/guideItineraries";
+import type { StopImagePair } from "@/lib/unsplash";
 import { MapPinIcon } from "@/components/icons";
 import CollapsibleSection from "./CollapsibleSection";
 import StopRow from "./StopRow";
@@ -20,6 +21,14 @@ interface DaySectionProps {
   onSelectStop: (key: string) => void;
   isSaved: (key: string) => boolean;
   onToggleSaved: (key: string) => void;
+  /**
+   * Resolved photos for the whole itinerary, keyed `"<dayIndex>-<stopIndex>"`
+   * — the same key this component already computes for every other per-stop
+   * lookup. A missing entry is the ordinary case (no Unsplash key, no results,
+   * a failed call), and reads as `undefined` straight into `StopThumb`'s
+   * placeholder branch.
+   */
+  stopImages: Record<string, StopImagePair>;
 }
 
 /**
@@ -41,6 +50,7 @@ export default function DaySection({
   onSelectStop,
   isSaved,
   onToggleSaved,
+  stopImages,
 }: DaySectionProps) {
   const stopCount = day.stops.length;
 
@@ -84,6 +94,7 @@ export default function DaySection({
                 saved={isSaved(key)}
                 selected={selectedKey === key}
                 alternate={stopIndex % 2 === 1}
+                thumbImage={stopImages[key]?.thumb}
                 onSelect={() => onSelectStop(key)}
                 onToggleSaved={() => onToggleSaved(key)}
               />

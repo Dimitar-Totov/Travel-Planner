@@ -4,9 +4,14 @@
  * `getPlanForQuery` stands in for a future real planning + flights API. It
  * does light keyword/number parsing on the traveller's one-line request and
  * returns a fully-formed, deterministic `Plan` — no network calls, no
- * randomness, no external dependencies. `POST /api/plan` (and its `GET`
- * sibling) is the only caller; keep this file pure so it stays trivially
- * testable once a real backend replaces it.
+ * randomness, no external dependencies. Keep this file pure so it stays
+ * trivially testable once a real backend replaces it.
+ *
+ * `parseDays`/`parseBudget` are also reused directly by
+ * `src/lib/tripPlanner.ts` (the AI-generated `TripPlan` that now backs
+ * `/plan` and `/api/plan`), so the "5 days"/"€1,000"-style parsing rules
+ * live in exactly one place. `getPlanForQuery` itself still backs
+ * `tripPlanner.ts`'s deterministic destination guess and offline fallback.
  */
 import type { ChecklistItem, Flights, Hotel, Plan, RoutePlan } from "./types";
 import { italyPlan } from "./demo";
@@ -18,7 +23,13 @@ import { italyPlan } from "./demo";
 /** Matches an explicit trip length such as "5 days", "5-day", "5days". */
 const DAYS_PATTERN = /\b(\d+)[\s-]*days?\b/i;
 
-function parseDays(query: string): number | undefined {
+/**
+ * Parses an explicit day count out of a trip sentence ("5 days", "a weekend",
+ * "2 weeks"), or `undefined` if none is stated. Exported so
+ * `src/lib/tripPlanner.ts` can reuse the exact same parsing rather than
+ * duplicating this regex.
+ */
+export function parseDays(query: string): number | undefined {
   const explicit = query.match(DAYS_PATTERN);
   if (explicit) {
     const value = Number.parseInt(explicit[1], 10);
@@ -39,7 +50,11 @@ const CURRENCY_SYMBOL_PATTERN = /[€$£]\s*([\d,]+(?:\.\d+)?)/;
 /** Matches "1000 budget" / "800 euros". */
 const CURRENCY_WORD_PATTERN = /([\d,]+(?:\.\d+)?)\s*(?:euros?|budget)/i;
 
-function parseBudget(query: string): number | undefined {
+/**
+ * Parses a budget amount out of a trip sentence ("€1,000", "800 euros"), or
+ * `undefined` if none is stated. Exported for the same reason as `parseDays`.
+ */
+export function parseBudget(query: string): number | undefined {
   const symbolMatch = query.match(CURRENCY_SYMBOL_PATTERN);
   if (symbolMatch) {
     const amount = normalizeAmount(symbolMatch[1]);
