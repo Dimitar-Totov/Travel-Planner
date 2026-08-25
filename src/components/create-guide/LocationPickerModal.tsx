@@ -9,6 +9,7 @@ import {
   Marker,
   NavigationControl,
   type MapLayerMouseEvent,
+  type MapRef,
   type MarkerDragEvent,
 } from "@vis.gl/react-maplibre";
 import type {
@@ -16,9 +17,11 @@ import type {
   DraftStop,
   PickerTarget,
 } from "@/lib/hooks/useCreateGuideForm";
+import { resolveKnownPlace, type KnownPlace } from "@/lib/knownPlaces";
 import { CheckIcon, CloseIcon } from "@/components/icons";
 import StopPin from "@/components/destinations/detail/StopPin";
 import { MAP_STYLE } from "@/components/destinations/detail/mapStyle";
+import PlaceSearchField from "./PlaceSearchField";
 
 /** Everything that can hold focus and isn't explicitly removed from the tab
  *  order — used to wrap Tab around inside the dialog. Same list
@@ -42,6 +45,9 @@ interface ContextPin extends Point {
 interface LocationPickerModalProps {
   /** The whole draft — every placed stop is drawn for spatial context. */
   days: DraftDay[];
+  /** The guide's headline accent ("England", "old Lisbon"). Read once, only to
+   *  bias the opening camera when nothing has been placed yet. */
+  heroAccent: string;
   target: PickerTarget;
   onCancel: () => void;
   onConfirm: (lat: number, lng: number) => void;
@@ -66,12 +72,17 @@ interface LocationPickerModalProps {
  */
 export default function LocationPickerModal({
   days,
+  heroAccent,
   target,
   onCancel,
   onConfirm,
 }: LocationPickerModalProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const mapRef = useRef<MapRef | null>(null);
+  // MapLibre ignores camera commands until the style has loaded, so nothing
+  // may call `easeTo` before `onLoad` — same guard `GuideMap` uses.
+  const [ready, setReady] = useState(false);
   const reduceMotion = useReducedMotion();
 
   const { stop, stopNumber, dayTitle, contextPins } = useMemo(() => {
@@ -119,8 +130,10 @@ export default function LocationPickerModal({
   );
 
   // Read once, on the first render only — MapLibre owns the camera afterwards.
-  // Same fallback ladder `GuideMap` uses: the thing being placed, then whatever
-  // else is already on the map, then a world view.
+  // Four rungs, most precise signal first: the thing being placed, then
+  // whatever else is already on the map, then the place named in the guide's
+  // headline accent (a country-level guess, so it only wins once no real
+  // coordinate exists), then a world view.
   const [initialViewState] = useState(() => {
     if (stop?.placed) {
       return { longitude: stop.lng, latitude: stop.lat, zoom: 14 };
@@ -134,6 +147,14 @@ export default function LocationPickerModal({
         longitude: sum.lng / contextPins.length,
         latitude: sum.lat / contextPins.length,
         zoom: 11,
+      };
+    }
+    const accentPlace = resolveKnownPlace(heroAccent);
+    if (accentPlace) {
+      return {
+        longitude: accentPlace.lng,
+        latitude: accentPlace.lat,
+        zoom: accentPlace.zoom,
       };
     }
     return { longitude: 0, latitude: 20, zoom: 1.4 };
@@ -185,6 +206,24 @@ export default function LocationPickerModal({
 
   const stopLabel = stop?.name.trim() || `Stop ${stopNumber}`;
 
+  /**
+   * Searching by name is a placement, not just a pan: the pin drops on the
+   * place immediately (still draggable, so the author fine-tunes from there
+   * rather than hunting for the city first). The camera follows at the entry's
+   * own hand-picked zoom.
+   */
+  function handlePlaceSelect(place: KnownPlace) {
+    setPoint({ lat: place.lat, lng: place.lng });
+
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    map.easeTo({
+      center: [place.lng, place.lat],
+      zoom: place.zoom,
+      duration: reduceMotion ? 0 : 600,
+    });
+  }
+
   return (
     <motion.div
       ref={rootRef}
@@ -206,8 +245,8 @@ export default function LocationPickerModal({
             {stopLabel}
           </h2>
           <p className="mt-0.5 truncate text-[12.5px] text-muted">
-            {dayTitle} · Click the map to drop the pin, then drag it to
-            fine-tune.
+            {dayTitle} · Search a place or click the map to drop the pin, then
+            drag it to fine-tune.
           </p>
         </div>
 
@@ -229,12 +268,14 @@ export default function LocationPickerModal({
       <div className="tp-map relative min-h-0 flex-1">
         <div className="absolute inset-0">
           <Map
+            ref={mapRef}
             initialViewState={initialViewState}
             mapStyle={MAP_STYLE}
             style={{ width: "100%", height: "100%" }}
             attributionControl={false}
             dragRotate={false}
             cursor="crosshair"
+            onLoad={() => setReady(true)}
             onClick={(event: MapLayerMouseEvent) =>
               setPoint({ lat: event.lngLat.lat, lng: event.lngLat.lng })
             }
@@ -279,8 +320,21 @@ export default function LocationPickerModal({
           </Map>
         </div>
 
+        {/* Top-left, where a map search box is expected — and the only free
+            corner up here: the attribution owns top-right and the zoom control
+            bottom-right. Width is capped short of the right edge so it clears
+            the attribution at every width (it renders compact on a phone,
+            expanded above 640px), since this modal is full-screen at all
+            breakpoints. */}
+        <div className="absolute left-3 top-3 z-20 w-[calc(100%-4.5rem)] max-w-[19rem] sm:left-4 sm:top-4">
+          <PlaceSearchField onSelect={handlePlaceSelect} />
+        </div>
+
+        {/* Sits a row below the search field rather than beside it: centred and
+            top-aligned, the two would collide on any viewport narrow enough for
+            the centre to reach into the left column. */}
         {!point && (
-          <p className="pointer-events-none absolute inset-x-0 top-4 z-10 mx-auto w-fit rounded-full bg-white/92 px-4 py-2 text-[12.5px] font-bold text-brand-700 shadow-[0_10px_26px_-14px_rgba(20,52,78,.6)] backdrop-blur-[8px]">
+          <p className="pointer-events-none absolute inset-x-0 top-[4.5rem] z-10 mx-auto w-fit max-w-[calc(100%-1.5rem)] rounded-full bg-white/92 px-4 py-2 text-center text-[12.5px] font-bold text-brand-700 shadow-[0_10px_26px_-14px_rgba(20,52,78,.6)] backdrop-blur-[8px]">
             Click anywhere on the map to place this stop
           </p>
         )}

@@ -136,6 +136,7 @@ export default function CreateGuidePageShell({
         {!previewing && form.pickerTarget && (
           <LocationPickerModal
             days={form.days}
+            heroAccent={form.heroAccent}
             target={form.pickerTarget}
             onCancel={form.closePicker}
             onConfirm={form.confirmPickedLocation}

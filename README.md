@@ -42,6 +42,8 @@ Test123456!
 
 TODO:
 
+- Big content in create guide
+- Moving bar with edit preview after scroll in create guide
 - Store recent guides images to mongodb to remove that fetch everytime user go to /destinations page.
 - Create upload guide images to every guide account and after that store them in mongo db.
 - Only after user plan its trip should be fetched images from unsplash
