@@ -35,6 +35,14 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
+# Test users:
+
+test@email.com
+Test123456!
+
+
 TODO:
 
-
+- Store recent guides images to mongodb to remove that fetch everytime user go to /destinations page.
+- Create upload guide images to every guide account and after that store them in mongo db.
+- Only after user plan its trip should be fetched images from unsplash
