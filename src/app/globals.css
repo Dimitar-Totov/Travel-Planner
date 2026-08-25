@@ -35,6 +35,13 @@
 
   --color-gold: #c9a15a;
   --color-gold-2: #c69a3a;
+  /* A warmer, more saturated amber than `gold-2`, used wherever the product
+     marks something as endorsed or held by the reader: verified guides, a
+     day's highlighted stop, the selected map pin, the saved state. `gold-deep`
+     is the only shade of it that clears 4.5:1 on the pale tints it sits on, so
+     it is the text partner rather than a second accent. */
+  --color-gold-warm: #c9822f;
+  --color-gold-deep: #8a6524;
   --color-success: #2c8b5f;
   --color-danger: #c0453f;
 }
@@ -374,6 +381,143 @@ body {
   animation: tp-ticker 80s linear infinite;
 }
 
+/* ---- Guide detail (/destinations/guide/[guideId]/details) --------------- */
+
+/* On desktop the reading column is the only thing on the page that scrolls, and
+   it ends flush against the map divider — the platform's default 17px bar reads
+   as a second border there. Thin + neutral keeps the seam quiet. */
+.tp-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #cfd9e0 transparent;
+}
+.tp-scroll::-webkit-scrollbar {
+  width: 9px;
+}
+.tp-scroll::-webkit-scrollbar-thumb {
+  background: #cfd9e0;
+  border-radius: 9px;
+  border: 2px solid #fff;
+}
+
+/* Accordion for the general-tips and day sections.
+
+   Animating `grid-template-rows` from `0fr` to `1fr` is the only way to
+   transition to a height nobody has measured, which is what makes closing the
+   exact mirror of opening — a JS-measured `max-height` would need re-measuring
+   on every reflow and still eases wrong. The inner element must carry both
+   `overflow:hidden` and `min-height:0` or the grid row refuses to collapse.
+
+   `visibility` is the part that keeps this honest for assistive tech: it flips
+   to `hidden` only after the collapse finishes (a 0s transition with a delay
+   equal to the collapse duration), so the panel finishes animating before it
+   leaves the tab order and the a11y tree, and it comes back instantly on the
+   way open. */
+.tp-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.42s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.tp-collapse > .tp-collapse-inner {
+  overflow: hidden;
+  min-height: 0;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease,
+    visibility 0s linear 0.42s;
+}
+.tp-collapse[data-open="true"] {
+  grid-template-rows: 1fr;
+}
+.tp-collapse[data-open="true"] > .tp-collapse-inner {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity 0.34s cubic-bezier(0.2, 0.7, 0.2, 1) 0.08s,
+    transform 0.34s cubic-bezier(0.2, 0.7, 0.2, 1) 0.08s,
+    visibility 0s;
+}
+
+/* The chevron turns over the same 0.3s the panel opens in, so header and body
+   read as one gesture. Rotation itself comes from Tailwind's `rotate-180`. */
+.tp-chev {
+  transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* Stop rows: the whole row tints on hover, and the thumbnail placeholder
+   inside it drifts in slightly — a small promise that a photo belongs there. */
+.tp-stop {
+  transition: background 0.22s ease;
+}
+.tp-stop .tp-ph {
+  transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.tp-stop:hover .tp-ph {
+  transform: scale(1.07);
+}
+
+/* Selected map pin. The halo is a sibling circle behind the teardrop, scaled
+   about its own centre — `transform-box: fill-box` is required or SVG would
+   scale it around the whole viewBox. */
+@keyframes tp-pin-halo {
+  0% {
+    transform: scale(0.55);
+    opacity: 0.5;
+  }
+  75% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+@keyframes tp-pin-pop {
+  from {
+    transform: translateY(-6px) scale(0.9);
+  }
+  to {
+    transform: none;
+  }
+}
+.tp-pin-halo {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: tp-pin-halo 2.4s ease-out infinite;
+}
+.tp-pin-pop {
+  animation: tp-pin-pop 0.45s cubic-bezier(0.2, 0.8, 0.2, 1.2);
+}
+
+/* MapLibre's own chrome. The attribution is a licence requirement for the CARTO
+   basemap, so it stays visible — it is only made small and quiet. */
+.tp-map .maplibregl-ctrl-attrib {
+  background: rgba(255, 255, 255, 0.8);
+  color: #8a99a3;
+  font-size: 9.5px;
+  border-radius: 8px;
+}
+.tp-map .maplibregl-ctrl-attrib a {
+  color: #5f7a8c;
+}
+.tp-map .maplibregl-ctrl-group {
+  border: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 22px -12px rgba(20, 52, 78, 0.55);
+}
+/* In the mobile overlay the close button owns the top-right corner, so the
+   attribution steps down under it rather than sitting behind it. */
+@media (max-width: 1023px) {
+  .tp-map .maplibregl-ctrl-top-right {
+    padding-top: 52px;
+  }
+}
+
 /* Respect users who prefer reduced motion — kill the looping/entrance motion
    and hover translations, keep everything legible and in place. */
 @media (prefers-reduced-motion: reduce) {
@@ -385,6 +529,16 @@ body {
   .tp-chip,
   .tp-badge,
   .tp-spin,
+  /* The accordion still expands and collapses here — only the tween is
+     dropped, so the panel snaps open and shut. Killing the transition also
+     kills the delayed `visibility` flip, which is exactly what we want. */
+  .tp-collapse,
+  .tp-collapse > .tp-collapse-inner,
+  .tp-chev,
+  .tp-stop,
+  .tp-stop .tp-ph,
+  .tp-pin-halo,
+  .tp-pin-pop,
   /* WorldClock also drops to a short, static subset of cities when this
      matches, so the stopped track still fits on one line. */
   .tp-ticker,
@@ -400,6 +554,7 @@ body {
   .tp-btn:hover,
   .tp-lift:hover,
   .tp-chip:hover,
+  .tp-stop:hover .tp-ph,
   .tp-feat:hover .tp-badge {
     transform: none !important;
   }

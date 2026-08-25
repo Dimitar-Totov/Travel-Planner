@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { DestinationGuide } from "@/lib/destinationGuides";
 import { formatLikes, formatViews } from "@/lib/destinationGuides";
 import { CheckIcon, HeartIcon, EyeIcon } from "@/components/icons";
@@ -15,7 +16,10 @@ const THUMB_SCRIM =
  */
 export default function GuideCard({ guide }: { guide: DestinationGuide }) {
   return (
-    <article className="group overflow-hidden rounded-2xl bg-white shadow-[0_18px_38px_-32px_rgba(20,52,78,.45)]">
+    <Link
+      href={`/destinations/guide/${guide.slug}/details`}
+      className="group block cursor-pointer overflow-hidden rounded-2xl bg-white shadow-[0_18px_38px_-32px_rgba(20,52,78,.45)]"
+    >
       {/* `place` doubles as the cover photo's alt text. The image lives in
           its own layer so it can zoom on hover without dragging the
           scrim/meta pill along with it. */}
@@ -85,6 +89,6 @@ export default function GuideCard({ guide }: { guide: DestinationGuide }) {
           </div>
         </div>
       </div>
-    </article>
+    </Link>
   );
 }
