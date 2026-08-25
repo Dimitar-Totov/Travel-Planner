@@ -6,7 +6,11 @@ import PromptBox from "./PromptBox";
 const BOTTOM_FADE =
   "linear-gradient(180deg,rgba(11,53,83,0) 0%,rgba(11,53,83,.55) 60%,#0b3553 100%)";
 
-export default function Hero() {
+export default function Hero({
+  isAuthenticated,
+}: {
+  isAuthenticated: boolean;
+}) {
   return (
     <div className="relative min-h-[720px] overflow-hidden bg-[linear-gradient(180deg,#17567c_0%,#114a6d_42%,#0d3d5b_78%,#0b3553_100%)] text-[#e9f3f9] lg:min-h-[860px]">
       <HeroGlobe />
@@ -38,7 +42,7 @@ export default function Hero() {
           in seconds.
         </p>
 
-        <PromptBox />
+        <PromptBox isAuthenticated={isAuthenticated} />
 
         <div className="mt-[26px] text-[13px] tracking-[.01em] text-[#9dbccd]">
           Free to try · No card required · Prices update live

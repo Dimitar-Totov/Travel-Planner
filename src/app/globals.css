@@ -99,6 +99,24 @@ body {
     transform: none;
   }
 }
+@keyframes tp-modal-backdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes tp-modal-panel {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 @keyframes tp-map-pulse {
   0% {
     r: 7;
@@ -128,6 +146,15 @@ body {
 /* Staggered entrance for hero elements. */
 .tp-rise {
   animation: tp-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Modal entrance — the scrim fades, the panel settles in behind it. Both
+   replay on every open because the dialog unmounts while closed. */
+.tp-modal-backdrop {
+  animation: tp-modal-backdrop 0.22s ease-out both;
+}
+.tp-modal-panel {
+  animation: tp-modal-panel 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
 /* Interaction affordances. */
@@ -523,6 +550,8 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .tp-caret,
   .tp-rise,
+  .tp-modal-backdrop,
+  .tp-modal-panel,
   .tp-map-pulse,
   .tp-btn,
   .tp-lift,
