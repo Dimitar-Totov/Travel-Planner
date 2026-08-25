@@ -12,39 +12,11 @@ import {
   Source,
   type MapRef,
 } from "@vis.gl/react-maplibre";
-import type { LngLatBoundsLike, StyleSpecification } from "maplibre-gl";
+import type { LngLatBoundsLike } from "maplibre-gl";
 import { CloseIcon, DownloadIcon } from "@/components/icons";
 import type { ShownStop } from "@/lib/hooks/useGuideDetail";
 import StopPin from "./StopPin";
-
-/**
- * CARTO Voyager, as a hand-written raster style.
- *
- * The now-deleted `RouteMap` pointed at MapLibre's demo vector style, an
- * outline-only developer basemap — fine behind four country-scale pins, useless
- * behind a walking itinerary where the reader needs streets, parks and the
- * river. Voyager is the basemap the design was drawn on.
- *
- * MapLibre has no `{s}` subdomain token, so the three CARTO hosts are listed as
- * three `tiles` entries; it round-robins them itself. `{ratio}` resolves to
- * `@2x` on retina displays and to nothing elsewhere.
- */
-const MAP_STYLE: StyleSpecification = {
-  version: 8,
-  sources: {
-    carto: {
-      type: "raster",
-      tiles: ["a", "b", "c"].map(
-        (host) =>
-          `https://${host}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{ratio}.png`,
-      ),
-      tileSize: 256,
-      maxzoom: 19,
-      attribution: "© OpenStreetMap contributors © CARTO",
-    },
-  },
-  layers: [{ id: "carto-tiles", type: "raster", source: "carto" }],
-};
+import { MAP_STYLE } from "./mapStyle";
 
 /**
  * Room for the chips along the top and the stop card along the bottom.

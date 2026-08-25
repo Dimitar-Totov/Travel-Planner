@@ -40,9 +40,9 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 test@email.com
 Test123456!
 
-
 TODO:
 
 - Store recent guides images to mongodb to remove that fetch everytime user go to /destinations page.
 - Create upload guide images to every guide account and after that store them in mongo db.
 - Only after user plan its trip should be fetched images from unsplash
+- Gate /create-guide behind sign-in and a "tourist-guide" role once accounts/roles exist.

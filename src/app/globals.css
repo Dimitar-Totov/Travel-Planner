@@ -185,6 +185,29 @@ body {
 .tp-chip:hover {
   transform: translateY(-1px);
 }
+/* Same affordance as .tp-btn/.tp-chip, but a hover shadow instead of a lift —
+   used on /create-guide, where reorder/add/remove controls sit right next to
+   each other and a moving button reads as the list itself shifting. */
+.tp-btn-shadow {
+  transition:
+    box-shadow 0.25s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+.tp-btn-shadow:hover {
+  box-shadow: 0 14px 28px -14px rgba(20, 52, 78, 0.55);
+}
+.tp-chip-shadow {
+  transition:
+    box-shadow 0.2s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+.tp-chip-shadow:hover {
+  box-shadow: 0 10px 20px -12px rgba(20, 52, 78, 0.4);
+}
 .tp-badge {
   transition:
     transform 0.25s ease,
@@ -556,6 +579,8 @@ body {
   .tp-btn,
   .tp-lift,
   .tp-chip,
+  .tp-btn-shadow,
+  .tp-chip-shadow,
   .tp-badge,
   .tp-spin,
   /* The accordion still expands and collapses here — only the tween is

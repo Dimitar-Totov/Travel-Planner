@@ -234,6 +234,41 @@ export function DownloadIcon(props: IconProps) {
   );
 }
 
+/** Same tray, arrow lifting out — the Publish affordance. Mirror of
+ *  `DownloadIcon` so the two read as a matched pair wherever they meet. */
+export function UploadIcon(props: IconProps) {
+  return (
+    <Stroke strokeWidth={2.1} {...props}>
+      <path d="M12 16V3" />
+      <path d="M7 8l5-5 5 5" />
+      <path d="M4 20h16" />
+    </Stroke>
+  );
+}
+
+/** Plain cross — every "add another one of these" control. */
+export function PlusIcon(props: IconProps) {
+  return (
+    <Stroke strokeWidth={2.2} {...props}>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </Stroke>
+  );
+}
+
+/** Lidded bin — every destructive "remove this row" control. */
+export function TrashIcon(props: IconProps) {
+  return (
+    <Stroke strokeWidth={2} {...props}>
+      <path d="M4 7h16" />
+      <path d="M9.5 7V4.5h5V7" />
+      <path d="M6.5 7l.8 12.1a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4L17.5 7" />
+      <path d="M10.5 11v6" />
+      <path d="M13.5 11v6" />
+    </Stroke>
+  );
+}
+
 export function CommentIcon(props: IconProps) {
   return (
     <Stroke {...props}>
