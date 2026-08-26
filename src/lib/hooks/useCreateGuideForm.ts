@@ -126,6 +126,12 @@ export interface CreateGuideFormState {
   coverImage: string;
   setCoverImage: (value: string) => void;
 
+  /** Extra photos beyond the cover — captured for the draft, same as every
+   *  other not-yet-published field on this page. */
+  photos: string[];
+  addPhoto: (dataUrl: string) => void;
+  removePhoto: (dataUrl: string) => void;
+
   tags: string[];
   addTag: (value: string) => void;
   removeTag: (value: string) => void;
@@ -185,6 +191,7 @@ export function useCreateGuideForm(): CreateGuideFormState {
   const [currency, setCurrency] = useState("€");
   const [bestTime, setBestTime] = useState("");
   const [coverImage, setCoverImage] = useState("");
+  const [photos, setPhotos] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [generalTips, setGeneralTips] = useState<string[]>([]);
   const [days, setDays] = useState<DraftDay[]>(() => [seedDay()]);
@@ -192,6 +199,16 @@ export function useCreateGuideForm(): CreateGuideFormState {
     () => new Set([SEED_DAY_ID]),
   );
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
+
+  const addPhoto = useCallback(
+    (dataUrl: string) => setPhotos((current) => [...current, dataUrl]),
+    [],
+  );
+  const removePhoto = useCallback(
+    (dataUrl: string) =>
+      setPhotos((current) => current.filter((photo) => photo !== dataUrl)),
+    [],
+  );
 
   const addTag = useCallback(
     (value: string) => setTags((current) => withEntry(current, value)),
@@ -387,6 +404,10 @@ export function useCreateGuideForm(): CreateGuideFormState {
     setBestTime,
     coverImage,
     setCoverImage,
+
+    photos,
+    addPhoto,
+    removePhoto,
 
     tags,
     addTag,

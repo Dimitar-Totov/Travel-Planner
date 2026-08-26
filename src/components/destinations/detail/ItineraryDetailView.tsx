@@ -27,8 +27,9 @@ export interface DetailHero {
   title: string;
   accent: string;
   tags: string[];
-  image: string;
-  imageAlt: string;
+  /** `undefined` for a create-guide draft with no cover chosen yet. */
+  image?: string;
+  imageAlt?: string;
   /** Community guides only — a generated plan is never "verified". */
   verified?: boolean;
   /** Photographer attribution, when the photo source requires one. */

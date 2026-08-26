@@ -11,15 +11,24 @@ type FieldChrome = {
   /** Requirements worth stating before the user gets them wrong. */
   hint?: string;
   error?: string;
+  /** Opt in to the larger `lg:` sizing `/create-guide`'s other controls use
+   *  (`FormControls`, `ListInput`). Off by default so the auth forms this
+   *  component also backs — a narrower, centered card — don't scale up. */
+  desktopScale?: boolean;
 };
 
 type InputRest = Omit<ComponentPropsWithoutRef<"input">, "id" | "className">;
 
 /** Tailwind can't see through a template literal, so both branches spell out
  *  every class they need. */
-function inputClass(hasError: boolean, extra = ""): string {
-  const base =
-    "h-11 w-full rounded-[10px] border bg-surface-3 px-3.5 text-[14.5px] text-ink outline-none placeholder:text-[#9fb1bd] focus:bg-white focus:ring-[3px]";
+function inputClass(
+  hasError: boolean,
+  desktopScale: boolean,
+  extra = "",
+): string {
+  const base = desktopScale
+    ? "h-11 w-full rounded-[10px] border bg-surface-3 px-3.5 text-[14.5px] text-ink outline-none placeholder:text-[#9fb1bd] focus:bg-white focus:ring-[3px] lg:h-14 lg:px-5 lg:text-[17px]"
+    : "h-11 w-full rounded-[10px] border bg-surface-3 px-3.5 text-[14.5px] text-ink outline-none placeholder:text-[#9fb1bd] focus:bg-white focus:ring-[3px]";
   const state = hasError
     ? "border-danger focus:border-danger focus:ring-danger/25"
     : "border-line focus:border-brand-500 focus:ring-brand-400/25";
@@ -43,21 +52,30 @@ function FieldFrame({
   labelAside,
   hint,
   error,
+  desktopScale,
   children,
 }: FieldChrome & { children: ReactNode }) {
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
-        <label htmlFor={id} className="text-[13px] font-semibold text-ink">
+        <label
+          htmlFor={id}
+          className={`text-[13px] font-semibold text-ink ${desktopScale ? "lg:text-[16px]" : ""}`}
+        >
           {label}
         </label>
         {labelAside}
       </div>
 
-      <div className="relative mt-1.5">{children}</div>
+      <div className={`relative mt-1.5 ${desktopScale ? "lg:mt-2.5" : ""}`}>
+        {children}
+      </div>
 
       {hint && (
-        <p id={`${id}-hint`} className="mt-1.5 text-[12px] text-muted">
+        <p
+          id={`${id}-hint`}
+          className={`mt-1.5 text-[12px] text-muted ${desktopScale ? "lg:mt-2 lg:text-[14.5px]" : ""}`}
+        >
           {hint}
         </p>
       )}
@@ -65,7 +83,7 @@ function FieldFrame({
         <p
           id={`${id}-error`}
           role="alert"
-          className="mt-1.5 text-[12.5px] font-medium text-danger"
+          className={`mt-1.5 text-[12.5px] font-medium text-danger ${desktopScale ? "lg:mt-2 lg:text-[15px]" : ""}`}
         >
           {error}
         </p>
@@ -80,6 +98,7 @@ export default function Field({
   labelAside,
   hint,
   error,
+  desktopScale = false,
   ...input
 }: FieldChrome & InputRest) {
   return (
@@ -89,13 +108,14 @@ export default function Field({
       labelAside={labelAside}
       hint={hint}
       error={error}
+      desktopScale={desktopScale}
     >
       <input
         {...input}
         id={id}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy(id, Boolean(hint), Boolean(error))}
-        className={inputClass(Boolean(error))}
+        className={inputClass(Boolean(error), desktopScale)}
       />
     </FieldFrame>
   );
@@ -108,6 +128,7 @@ export function PasswordField({
   labelAside,
   hint,
   error,
+  desktopScale = false,
   ...input
 }: FieldChrome & Omit<InputRest, "type">) {
   const [visible, setVisible] = useState(false);
@@ -119,6 +140,7 @@ export function PasswordField({
       labelAside={labelAside}
       hint={hint}
       error={error}
+      desktopScale={desktopScale}
     >
       <input
         {...input}
@@ -126,7 +148,7 @@ export function PasswordField({
         type={visible ? "text" : "password"}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy(id, Boolean(hint), Boolean(error))}
-        className={inputClass(Boolean(error), "pr-[68px]")}
+        className={inputClass(Boolean(error), desktopScale, "pr-[68px]")}
       />
       {/* The accessible name keeps the visible word in it (WCAG 2.5.3) while
           spelling out what's being shown. */}

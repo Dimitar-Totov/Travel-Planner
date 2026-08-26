@@ -17,7 +17,7 @@ import type { ComponentPropsWithoutRef, ReactNode } from "react";
  */
 
 const CONTROL_BASE =
-  "w-full rounded-[10px] border border-line bg-surface-3 px-3.5 text-[14.5px] text-ink outline-none placeholder:text-[#9fb1bd] focus:border-brand-500 focus:bg-white focus:ring-[3px] focus:ring-brand-400/25 lg:px-4 lg:text-[15.5px]";
+  "w-full rounded-[10px] border border-line bg-surface-3 px-3.5 text-[14.5px] text-ink outline-none placeholder:text-[#9fb1bd] focus:border-brand-500 focus:bg-white focus:ring-[3px] focus:ring-brand-400/25 lg:px-5 lg:text-[17px]";
 
 function Frame({
   id,
@@ -34,15 +34,15 @@ function Frame({
     <div>
       <label
         htmlFor={id}
-        className="text-[13px] font-semibold text-ink lg:text-[14px]"
+        className="text-[13px] font-semibold text-ink lg:text-[16px]"
       >
         {label}
       </label>
-      <div className="mt-1.5">{children}</div>
+      <div className="mt-1.5 lg:mt-2.5">{children}</div>
       {hint && (
         <p
           id={`${id}-hint`}
-          className="mt-1.5 text-[12px] text-muted lg:text-[13px]"
+          className="mt-1.5 text-[12px] text-muted lg:mt-2 lg:text-[14.5px]"
         >
           {hint}
         </p>
@@ -69,7 +69,7 @@ export function TextAreaField({
         id={id}
         rows={rows}
         aria-describedby={hint ? `${id}-hint` : undefined}
-        className={`${CONTROL_BASE} resize-y py-2.5 leading-[1.55] lg:py-3`}
+        className={`${CONTROL_BASE} resize-y py-2.5 leading-[1.55] lg:py-4`}
       />
     </Frame>
   );
@@ -92,7 +92,7 @@ export function SelectField({
         {...select}
         id={id}
         aria-describedby={hint ? `${id}-hint` : undefined}
-        className={`${CONTROL_BASE} h-11 lg:h-12`}
+        className={`${CONTROL_BASE} h-11 lg:h-14`}
       >
         {children}
       </select>
