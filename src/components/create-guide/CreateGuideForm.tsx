@@ -5,7 +5,7 @@ import Field from "@/components/auth/Field";
 import { TextAreaField } from "./FormControls";
 import ItineraryEditor from "./ItineraryEditor";
 import ListInput from "./ListInput";
-import { isSupportedCoverImage } from "./coverImage";
+import PhotoUploadField from "./PhotoUploadField";
 
 /**
  * The authoring form: everything a `GuideItinerary` carries, in the order a
@@ -20,31 +20,27 @@ export default function CreateGuideForm({
 }: {
   form: CreateGuideFormState;
 }) {
-  const coverError =
-    form.coverImage.trim() !== "" && !isSupportedCoverImage(form.coverImage)
-      ? "Only images.unsplash.com URLs (or a path from this site) can be rendered."
-      : undefined;
-
   return (
-    <div className="mx-auto flex w-full max-w-[860px] flex-col gap-8 px-5 py-8 sm:px-8 sm:py-10 lg:max-w-[1040px] lg:gap-10 lg:px-10 lg:py-14 xl:max-w-[1160px]">
+    <div className="mx-auto flex w-full max-w-[860px] flex-col gap-8 px-5 py-8 sm:px-8 sm:py-10 lg:max-w-[1200px] lg:gap-12 lg:px-12 lg:py-16 xl:max-w-[1360px]">
       <section
         aria-labelledby="basics-heading"
-        className="rounded-2xl border border-line bg-white p-5 shadow-[0_18px_40px_-32px_rgba(20,52,78,.7)] sm:p-7 lg:p-9"
+        className="rounded-2xl border border-line bg-white p-5 shadow-[0_18px_40px_-32px_rgba(20,52,78,.7)] sm:p-7 lg:p-12"
       >
         <h2
           id="basics-heading"
-          className="text-[20px] font-extrabold tracking-[-.024em] text-ink-soft lg:text-[24px]"
+          className="text-[20px] font-extrabold tracking-[-.024em] text-ink-soft lg:text-[30px]"
         >
           Basics
         </h2>
-        <p className="mt-1 text-[13.5px] text-muted lg:mt-1.5 lg:text-[15px]">
+        <p className="mt-1 text-[13.5px] text-muted lg:mt-2 lg:text-[17px]">
           The hero, the opening paragraph and the four numbers at the top of the
           guide.
         </p>
 
-        <div className="mt-5 flex flex-col gap-4 lg:mt-6 lg:gap-5">
+        <div className="mt-5 flex flex-col gap-4 lg:mt-8 lg:gap-7">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
+              desktopScale
               id="hero-title"
               label="Headline"
               value={form.heroTitle}
@@ -54,6 +50,7 @@ export default function CreateGuideForm({
               autoComplete="off"
             />
             <Field
+              desktopScale
               id="hero-accent"
               label="Headline accent"
               value={form.heroAccent}
@@ -98,6 +95,7 @@ export default function CreateGuideForm({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
+              desktopScale
               id="guide-currency"
               label="Currency symbol"
               value={form.currency}
@@ -108,6 +106,7 @@ export default function CreateGuideForm({
               autoComplete="off"
             />
             <Field
+              desktopScale
               id="guide-best-time"
               label="Best time"
               value={form.bestTime}
@@ -118,36 +117,42 @@ export default function CreateGuideForm({
             />
           </div>
 
-          <Field
+          <PhotoUploadField
             id="guide-cover"
-            label="Cover image URL"
-            type="url"
-            inputMode="url"
-            value={form.coverImage}
-            onChange={(event) => form.setCoverImage(event.target.value)}
-            placeholder="https://images.unsplash.com/photo-…"
-            hint="Leave blank to use the default cover."
-            error={coverError}
-            autoComplete="off"
+            label="Cover photo"
+            hint="The hero photo at the top of the guide."
+            values={form.coverImage ? [form.coverImage] : []}
+            onAdd={form.setCoverImage}
+            onRemove={() => form.setCoverImage("")}
+            max={1}
+          />
+
+          <PhotoUploadField
+            id="guide-more-photos"
+            label="More photos"
+            hint="Extra shots for the guide, beyond the cover."
+            values={form.photos}
+            onAdd={form.addPhoto}
+            onRemove={form.removePhoto}
           />
         </div>
       </section>
 
       <section
         aria-labelledby="tips-heading"
-        className="rounded-2xl border border-line bg-white p-5 shadow-[0_18px_40px_-32px_rgba(20,52,78,.7)] sm:p-7 lg:p-9"
+        className="rounded-2xl border border-line bg-white p-5 shadow-[0_18px_40px_-32px_rgba(20,52,78,.7)] sm:p-7 lg:p-12"
       >
         <h2
           id="tips-heading"
-          className="text-[20px] font-extrabold tracking-[-.024em] text-ink-soft lg:text-[24px]"
+          className="text-[20px] font-extrabold tracking-[-.024em] text-ink-soft lg:text-[30px]"
         >
           General tips
         </h2>
-        <p className="mt-1 text-[13.5px] text-muted lg:mt-1.5 lg:text-[15px]">
+        <p className="mt-1 text-[13.5px] text-muted lg:mt-2 lg:text-[17px]">
           The bulleted advice that sits above the first day.
         </p>
 
-        <div className="mt-5 lg:mt-6">
+        <div className="mt-5 lg:mt-8">
           <ListInput
             id="general-tips-input"
             label="Add a tip"
