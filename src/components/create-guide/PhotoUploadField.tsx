@@ -4,6 +4,7 @@ import { useRef, useState, type ChangeEvent } from "react";
 import Image from "next/image";
 import { CloseIcon, UploadIcon } from "@/components/icons";
 import type { DraftPhoto } from "@/lib/hooks/useCreateGuideForm";
+import { GUIDE_PHOTO_ACCEPT } from "@/lib/validation/guide";
 import {
   ImageTooLargeError,
   UnsupportedImageTypeError,
@@ -77,7 +78,9 @@ export default function PhotoUploadField({
         if (cause instanceof ImageTooLargeError) {
           setError(`"${file.name}" is over the 5MB limit.`);
         } else if (cause instanceof UnsupportedImageTypeError) {
-          setError(`"${file.name}" isn't an image.`);
+          setError(
+            `"${file.name}" isn't a supported image — use JPEG, PNG, WebP, AVIF or GIF.`,
+          );
         } else {
           setError(`"${file.name}" couldn't be read.`);
         }
@@ -148,7 +151,9 @@ export default function PhotoUploadField({
         ref={inputRef}
         id={id}
         type="file"
-        accept="image/*"
+        // The exact list `POST /api/uploads` will presign for, so the OS
+        // picker greys out anything that would be rejected later.
+        accept={GUIDE_PHOTO_ACCEPT}
         multiple={max === undefined || max - values.length > 1}
         onChange={onFilesSelected}
         aria-describedby={
