@@ -48,7 +48,9 @@ export interface DetailStats {
   stopCount: number;
   /** Symbol the itinerary prices in, e.g. "€". Also used by every stop row. */
   currency: string;
-  approxCost: number;
+  /** Omitted when the itinerary has no disclosed budget — `GuideStatsStrip`
+   *  shows an em dash rather than inventing a figure. */
+  approxCost?: number;
   bestTime: string;
 }
 

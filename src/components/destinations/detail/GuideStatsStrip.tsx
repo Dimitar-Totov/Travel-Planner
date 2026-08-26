@@ -21,7 +21,10 @@ export default function GuideStatsStrip({
   days: number;
   stopCount: number;
   currency: string;
-  approxCostEUR: number;
+  /** Absent for any guide with no disclosed budget — `useCreateGuideForm`
+   *  doesn't collect one, so every guide authored through `/create-guide` is
+   *  in that position, as is a draft being previewed. */
+  approxCostEUR?: number;
   bestTime: string;
 }) {
   const stats: Stat[] = [
@@ -29,7 +32,14 @@ export default function GuideStatsStrip({
     { label: "Stops", value: String(stopCount) },
     {
       label: "Budget",
-      value: `${currency}${approxCostEUR.toLocaleString()}`,
+      // An em dash rather than a number, because there is no honest number to
+      // show: "€0" reads as "this trip is free" and a fabricated estimate
+      // would be worse. The currency symbol is dropped with it — a lone "€"
+      // next to nothing looks like a rendering bug.
+      value:
+        approxCostEUR === undefined
+          ? "—"
+          : `${currency}${approxCostEUR.toLocaleString()}`,
       accent: true,
     },
     { label: "Best time", value: bestTime },

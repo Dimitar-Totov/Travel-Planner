@@ -11,6 +11,9 @@ interface DestinationsResultsProps {
   results: DestinationGuide[];
   visible: DestinationGuide[];
   hasMore: boolean;
+  /** False before any guide has ever been published (or seeded) — switches
+   *  the empty state from "no matches" to "nothing published yet" copy. */
+  hasAnyGuides: boolean;
   onSelectTab: (next: TabId) => void;
   onLoadMore: () => void;
 }
@@ -25,6 +28,7 @@ export default function DestinationsResults({
   results,
   visible,
   hasMore,
+  hasAnyGuides,
   onSelectTab,
   onLoadMore,
 }: DestinationsResultsProps) {
@@ -102,7 +106,9 @@ export default function DestinationsResults({
             }
           >
             {results.length === 0
-              ? "No guides match your search."
+              ? hasAnyGuides
+                ? "No guides match your search."
+                : "No guides published yet — be the first to share one."
               : `Showing ${visible.length} of ${results.length}`}
           </p>
         </div>

@@ -138,8 +138,9 @@ export default function CreateGuidePreview({
         currency: form.currency.trim() || "€",
         // There is no budget field on a guide draft — `DestinationGuide`'s
         // `approxCostEUR` is feed metadata a published guide gets, not
-        // something the itinerary itself carries.
-        approxCost: 0,
+        // something the itinerary itself carries. Left undefined rather than
+        // `0`, which rendered as "€0" and read as a free trip.
+        approxCost: undefined,
         bestTime: form.bestTime.trim() || "—",
       }}
       notice={

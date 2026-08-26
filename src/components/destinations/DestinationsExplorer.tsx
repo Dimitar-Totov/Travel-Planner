@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { SparkleIcon } from "@/components/icons";
+import type { DestinationGuide } from "@/lib/destinationGuides";
 import DestinationsSearchBand from "./DestinationsSearchBand";
 import DestinationsResults from "./DestinationsResults";
 import { useDestinationsExplorer } from "@/lib/hooks/useDestinationsExplorer";
@@ -45,7 +46,13 @@ const BACKDROP_SCRIM =
  * boundary: the search band renders inside the photo, the results feed renders
  * on plain white below it.
  */
-export default function DestinationsExplorer() {
+export default function DestinationsExplorer({
+  guides,
+}: {
+  /** The published feed, loaded server-side by `app/destinations/page.tsx`
+   *  (`listPublishedGuides`) — see `useDestinationsExplorer`'s doc comment. */
+  guides: DestinationGuide[];
+}) {
   const {
     draft,
     query,
@@ -54,11 +61,12 @@ export default function DestinationsExplorer() {
     results,
     visible,
     hasMore,
+    hasAnyGuides,
     setDraft,
     search,
     selectTab,
     loadMore,
-  } = useDestinationsExplorer();
+  } = useDestinationsExplorer(guides);
 
   return (
     <>
@@ -120,6 +128,7 @@ export default function DestinationsExplorer() {
         results={results}
         visible={visible}
         hasMore={hasMore}
+        hasAnyGuides={hasAnyGuides}
         onSelectTab={selectTab}
         onLoadMore={loadMore}
       />
