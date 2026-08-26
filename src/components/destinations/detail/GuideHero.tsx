@@ -18,9 +18,13 @@ interface GuideHeroProps {
   title: string;
   accent: string;
   tags: string[];
-  /** Already resolved on the server — a guide's cover, or a plan's Unsplash photo. */
-  image: string;
-  imageAlt: string;
+  /**
+   * Already resolved on the server — a guide's cover, or a plan's Unsplash
+   * photo. `undefined` for a draft with no cover chosen yet, in which case
+   * the hero falls back to its plain background rather than a stand-in photo.
+   */
+  image?: string;
+  imageAlt?: string;
   /** Community guides can be editorially verified; a generated plan can't. */
   verified?: boolean;
   /** Photographer attribution, when the photo source requires one. */
@@ -51,14 +55,16 @@ export default function GuideHero({
     <div className="relative h-[240px] overflow-hidden bg-[#dde6ec] sm:h-[300px] lg:h-[330px]">
       {/* `sizes` tracks the reading column: full width below `lg`, roughly half
           the viewport once the map takes the other half. */}
-      <Image
-        src={image}
-        alt={imageAlt}
-        fill
-        priority
-        sizes="(min-width: 1280px) 50vw, (min-width: 1024px) 54vw, 100vw"
-        className="object-cover"
-      />
+      {image && (
+        <Image
+          src={image}
+          alt={imageAlt ?? ""}
+          fill
+          priority
+          sizes="(min-width: 1280px) 50vw, (min-width: 1024px) 54vw, 100vw"
+          className="object-cover"
+        />
+      )}
       <div
         className="pointer-events-none absolute inset-0"
         style={{ background: HERO_SCRIM }}
