@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence } from "motion/react";
 import { useCreateGuideForm } from "@/lib/hooks/useCreateGuideForm";
 import { EyeIcon, UploadIcon } from "@/components/icons";
@@ -45,6 +45,24 @@ export default function CreateGuidePageShell({
 }: CreateGuidePageShellProps) {
   const form = useCreateGuideForm();
   const [mode, setMode] = useState<Mode>("edit");
+  // Edit lives in normal document flow (window scroll), and swapping to
+  // Preview unmounts it entirely, so the browser has nothing to remember the
+  // scroll position by. Stash it on the way out and restore it once Edit is
+  // back in the DOM, before paint, so the switch doesn't visibly jump to top.
+  const editScrollY = useRef(0);
+
+  const changeMode = (next: Mode) => {
+    if (mode === "edit" && next !== mode) {
+      editScrollY.current = window.scrollY;
+    }
+    setMode(next);
+  };
+
+  useLayoutEffect(() => {
+    if (mode === "edit") {
+      window.scrollTo(0, editScrollY.current);
+    }
+  }, [mode]);
 
   const previewing = mode === "preview";
 
@@ -91,7 +109,7 @@ export default function CreateGuidePageShell({
                 <button
                   key={item.value}
                   type="button"
-                  onClick={() => setMode(item.value)}
+                  onClick={() => changeMode(item.value)}
                   aria-pressed={active}
                   className={`tp-chip-shadow inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13.5px] font-bold outline-offset-2 outline-brand-500 focus-visible:outline-2 lg:px-6 lg:py-3 lg:text-[16.5px] ${
                     active
