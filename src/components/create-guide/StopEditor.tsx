@@ -12,6 +12,7 @@ import {
 } from "@/components/icons";
 import StopPin from "@/components/destinations/detail/StopPin";
 import ListInput from "./ListInput";
+import PhotoUploadField from "./PhotoUploadField";
 import { SelectField, TextAreaField } from "./FormControls";
 
 /** Same order and labels `TransferConnector` renders. */
@@ -47,6 +48,8 @@ interface StopEditorProps {
   onMove: (direction: MoveDirection) => void;
   onRemove: () => void;
   onOpenPicker: () => void;
+  onSetPhoto: (dataUrl: string) => void;
+  onClearPhoto: () => void;
 }
 
 function IconButton({
@@ -98,6 +101,8 @@ export default function StopEditor({
   onMove,
   onRemove,
   onOpenPicker,
+  onSetPhoto,
+  onClearPhoto,
 }: StopEditorProps) {
   const base = `stop-${stop.id}`;
   const heading = stop.name.trim() || `Stop ${index + 1}`;
@@ -160,6 +165,16 @@ export default function StopEditor({
           onChange={(event) => onUpdate({ name: event.target.value })}
           placeholder="Sainte-Chapelle"
           autoComplete="off"
+        />
+
+        <PhotoUploadField
+          id={`${base}-photo`}
+          label="Photo (optional)"
+          hint="Shown for this stop instead of the placeholder thumbnail."
+          values={stop.photo ? [stop.photo] : []}
+          onAdd={onSetPhoto}
+          onRemove={onClearPhoto}
+          max={1}
         />
 
         <div>

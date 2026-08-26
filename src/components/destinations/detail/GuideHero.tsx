@@ -13,6 +13,17 @@ const HERO_SCRIM =
   "rgba(11,36,56,0) 34%," +
   "rgba(11,36,56,.82) 100%)";
 
+/**
+ * How the cover photo fills the banner.
+ *
+ * `"cover"` is the published look and the default: curated guide covers and
+ * Unsplash plan photos are landscape, so cropping them to the banner is what
+ * the design asks for. `"contain"` exists for the create-guide preview, where
+ * the photo is an author's own upload of any aspect ratio and cropping it hides
+ * the very thing they are checking.
+ */
+export type HeroImageFit = "cover" | "contain";
+
 interface GuideHeroProps {
   /** Headline, split so the tail renders in the serif italic accent. */
   title: string;
@@ -25,6 +36,7 @@ interface GuideHeroProps {
    */
   image?: string;
   imageAlt?: string;
+  imageFit?: HeroImageFit;
   /** Community guides can be editorially verified; a generated plan can't. */
   verified?: boolean;
   /** Photographer attribution, when the photo source requires one. */
@@ -48,11 +60,21 @@ export default function GuideHero({
   tags,
   image,
   imageAlt,
+  imageFit = "cover",
   verified = false,
   credit,
 }: GuideHeroProps) {
+  const contained = imageFit === "contain";
+
   return (
-    <div className="relative h-[240px] overflow-hidden bg-[#dde6ec] sm:h-[300px] lg:h-[330px]">
+    // The letterbox a contained photo leaves is deep navy rather than the pale
+    // default: the scrim is built to darken a photograph, and over the pale
+    // background the headline and tag row would sit on mid-grey instead.
+    <div
+      className={`relative h-[240px] overflow-hidden sm:h-[300px] lg:h-[330px] ${
+        contained ? "bg-navy-deep" : "bg-[#dde6ec]"
+      }`}
+    >
       {/* `sizes` tracks the reading column: full width below `lg`, roughly half
           the viewport once the map takes the other half. */}
       {image && (
@@ -62,7 +84,7 @@ export default function GuideHero({
           fill
           priority
           sizes="(min-width: 1280px) 50vw, (min-width: 1024px) 54vw, 100vw"
-          className="object-cover"
+          className={contained ? "object-contain" : "object-cover"}
         />
       )}
       <div

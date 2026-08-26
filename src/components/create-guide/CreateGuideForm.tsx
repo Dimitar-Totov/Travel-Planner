@@ -123,17 +123,8 @@ export default function CreateGuideForm({
             hint="The hero photo at the top of the guide."
             values={form.coverImage ? [form.coverImage] : []}
             onAdd={form.setCoverImage}
-            onRemove={() => form.setCoverImage("")}
+            onRemove={form.clearCoverImage}
             max={1}
-          />
-
-          <PhotoUploadField
-            id="guide-more-photos"
-            label="More photos"
-            hint="Extra shots for the guide, beyond the cover."
-            values={form.photos}
-            onAdd={form.addPhoto}
-            onRemove={form.removePhoto}
           />
         </div>
       </section>

@@ -3,6 +3,7 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import Image from "next/image";
 import { CloseIcon, UploadIcon } from "@/components/icons";
+import type { DraftPhoto } from "@/lib/hooks/useCreateGuideForm";
 import {
   ImageTooLargeError,
   UnsupportedImageTypeError,
@@ -14,16 +15,18 @@ interface PhotoUploadFieldProps {
   id: string;
   label: string;
   hint?: string;
-  values: string[];
+  values: DraftPhoto[];
   onAdd: (dataUrl: string) => void;
-  onRemove: (dataUrl: string) => void;
+  /** Takes the photo's `id`, never its `src` — two identical uploads share a
+   *  data URL and removing by value would drop both. */
+  onRemove: (photoId: string) => void;
   /** Caps how many photos this field holds. Omit for an unbounded gallery. */
   max?: number;
 }
 
 /**
- * The one photo-upload control on `/create-guide` — used both for the single
- * cover photo (`max={1}`) and the unbounded "More photos" gallery below it.
+ * The one photo-upload control on `/create-guide` — used for the single guide
+ * cover photo and, per stop, that stop's own single photo (both `max={1}`).
  *
  * There is no uploads API yet (same as everywhere else on this page — the
  * whole draft is in-memory only), so a picked file is read straight into a
@@ -44,8 +47,16 @@ export default function PhotoUploadField({
   const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | undefined>();
   const atLimit = max !== undefined && values.length >= max;
+  // A one-photo field swaps rather than fills up: the thumbnail itself reopens
+  // the picker, so "replace this cover" is one click instead of remove-then-add
+  // with the hero blanking out in between.
+  const replaceable = max === 1 && values.length > 0;
   const errorId = `${id}-error`;
   const hintId = `${id}-hint`;
+
+  function openFilePicker() {
+    inputRef.current?.click();
+  }
 
   async function onFilesSelected(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
@@ -53,7 +64,10 @@ export default function PhotoUploadField({
     event.target.value = "";
     if (files.length === 0) return;
 
-    const room = max !== undefined ? max - values.length : files.length;
+    // In replace mode the pick overwrites what's there, so a full field still
+    // has room for exactly one file.
+    const room =
+      max === undefined ? files.length : replaceable ? 1 : max - values.length;
 
     for (const file of files.slice(0, room)) {
       try {
@@ -81,23 +95,35 @@ export default function PhotoUploadField({
       </label>
 
       <div className="mt-1.5 flex flex-wrap gap-2.5 lg:mt-2.5 lg:gap-3">
-        {values.map((value, index) => (
+        {values.map((photo, index) => (
           <div
-            key={value}
+            key={photo.id}
             className="group relative h-24 w-24 flex-none overflow-hidden rounded-[10px] border border-line bg-surface-3 lg:h-28 lg:w-28"
           >
             <Image
-              src={value}
+              src={photo.src}
               alt=""
               fill
               sizes="112px"
               className="object-cover"
             />
+            {/* A sibling overlay rather than wrapping the tile, because the
+                remove button below it can't be nested inside another button. */}
+            {replaceable && (
+              <button
+                type="button"
+                onClick={openFilePicker}
+                aria-label={`Replace ${label.toLowerCase()}`}
+                className="absolute inset-0 flex items-end justify-center bg-[#0b2438]/60 pb-2 text-[11px] font-semibold text-white opacity-0 outline-offset-2 outline-white transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 lg:text-[12.5px]"
+              >
+                Replace
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => onRemove(value)}
+              onClick={() => onRemove(photo.id)}
               aria-label={`Remove photo ${index + 1}`}
-              className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#0b2438]/70 text-white outline-offset-2 outline-white transition-colors hover:bg-danger focus-visible:outline-2"
+              className="absolute right-1 top-1 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#0b2438]/70 text-white outline-offset-2 outline-white transition-colors hover:bg-danger focus-visible:outline-2"
             >
               <CloseIcon size={12} />
             </button>
@@ -107,7 +133,7 @@ export default function PhotoUploadField({
         {!atLimit && (
           <button
             type="button"
-            onClick={() => inputRef.current?.click()}
+            onClick={openFilePicker}
             className="flex h-24 w-24 flex-none flex-col items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-line bg-surface-3 text-muted-2 outline-offset-2 outline-brand-500 transition-colors hover:border-brand-500 hover:text-brand-700 focus-visible:outline-2 lg:h-28 lg:w-28"
           >
             <UploadIcon size={18} />
@@ -139,6 +165,8 @@ export default function PhotoUploadField({
           className="mt-1.5 text-[12px] text-muted lg:mt-2 lg:text-[14.5px]"
         >
           {hint}
+          {/* The overlay only shows on hover, which a touch device never has. */}
+          {replaceable && " Click the photo to swap in another."}
         </p>
       )}
       {error && (

@@ -18,10 +18,17 @@ import type { GuideDay, GuideStop } from "@/lib/itinerary";
  * somewhere sane to draw it instead of dropping a pin in the Atlantic and
  * zooming the whole itinerary out to fit it. The editor and the preview notice
  * both say plainly that such a stop still needs a location.
+ *
+ * `photo` is editor-only too, for the same reason `coverImage` lives outside
+ * `GuideStop`: it isn't part of the published shape, it's resolved separately
+ * (`stopImages`, normally an Unsplash lookup). `CreateGuidePreview` turns a
+ * placed `photo` into that same shape so a stop with an uploaded photo previews
+ * with a real image instead of `StopThumb`'s placeholder.
  */
 export interface DraftStop extends GuideStop {
   id: string;
   placed: boolean;
+  photo: DraftPhoto | null;
 }
 
 export interface DraftDay {
@@ -29,6 +36,20 @@ export interface DraftDay {
   title: string;
   summary: string;
   stops: DraftStop[];
+}
+
+/**
+ * An uploaded photo while it is being written.
+ *
+ * `src` cannot be the identity the way a tag or a tip string is: it is the
+ * file's own bytes, so picking the same image twice yields two entries that are
+ * `===` equal. As a React key those collide, and as a remove predicate they
+ * delete both thumbnails on one click. `id` is what `PhotoUploadField` keys and
+ * removes by instead.
+ */
+export interface DraftPhoto {
+  id: string;
+  src: string;
 }
 
 /** Which stop the location picker is currently placing. */
@@ -61,9 +82,16 @@ function newStop(id: string, seed: { lat: number; lng: number }): DraftStop {
     lat: seed.lat,
     lng: seed.lng,
     placed: false,
+    photo: null,
     tags: [],
     notes: [],
   };
+}
+
+/** Every photo is minted from a file-picker change handler, so `randomUUID`
+ *  here never runs during SSR and can't mismatch on hydration. */
+function newPhoto(src: string): DraftPhoto {
+  return { id: crypto.randomUUID(), src };
 }
 
 function seedDay(): DraftDay {
@@ -123,14 +151,11 @@ export interface CreateGuideFormState {
   setCurrency: (value: string) => void;
   bestTime: string;
   setBestTime: (value: string) => void;
-  coverImage: string;
-  setCoverImage: (value: string) => void;
-
-  /** Extra photos beyond the cover — captured for the draft, same as every
-   *  other not-yet-published field on this page. */
-  photos: string[];
-  addPhoto: (dataUrl: string) => void;
-  removePhoto: (dataUrl: string) => void;
+  /** The hero photo, or `null` before one is picked. A `DraftPhoto` like a
+   *  stop's own `photo`, so both upload fields take the same prop shape. */
+  coverImage: DraftPhoto | null;
+  setCoverImage: (dataUrl: string) => void;
+  clearCoverImage: () => void;
 
   tags: string[];
   addTag: (value: string) => void;
@@ -154,6 +179,8 @@ export interface CreateGuideFormState {
     stopId: string,
     patch: Partial<Omit<DraftStop, "id">>,
   ) => void;
+  setStopPhoto: (dayId: string, stopId: string, dataUrl: string) => void;
+  clearStopPhoto: (dayId: string, stopId: string) => void;
 
   isDayOpen: (dayId: string) => boolean;
   toggleDay: (dayId: string) => void;
@@ -190,8 +217,7 @@ export function useCreateGuideForm(): CreateGuideFormState {
   const [intro, setIntro] = useState("");
   const [currency, setCurrency] = useState("€");
   const [bestTime, setBestTime] = useState("");
-  const [coverImage, setCoverImage] = useState("");
-  const [photos, setPhotos] = useState<string[]>([]);
+  const [coverImage, setCoverImageState] = useState<DraftPhoto | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [generalTips, setGeneralTips] = useState<string[]>([]);
   const [days, setDays] = useState<DraftDay[]>(() => [seedDay()]);
@@ -200,15 +226,11 @@ export function useCreateGuideForm(): CreateGuideFormState {
   );
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
 
-  const addPhoto = useCallback(
-    (dataUrl: string) => setPhotos((current) => [...current, dataUrl]),
+  const setCoverImage = useCallback(
+    (dataUrl: string) => setCoverImageState(newPhoto(dataUrl)),
     [],
   );
-  const removePhoto = useCallback(
-    (dataUrl: string) =>
-      setPhotos((current) => current.filter((photo) => photo !== dataUrl)),
-    [],
-  );
+  const clearCoverImage = useCallback(() => setCoverImageState(null), []);
 
   const addTag = useCallback(
     (value: string) => setTags((current) => withEntry(current, value)),
@@ -339,6 +361,17 @@ export function useCreateGuideForm(): CreateGuideFormState {
     [],
   );
 
+  const setStopPhoto = useCallback(
+    (dayId: string, stopId: string, dataUrl: string) =>
+      updateStop(dayId, stopId, { photo: newPhoto(dataUrl) }),
+    [updateStop],
+  );
+  const clearStopPhoto = useCallback(
+    (dayId: string, stopId: string) =>
+      updateStop(dayId, stopId, { photo: null }),
+    [updateStop],
+  );
+
   const toggleDay = useCallback((dayId: string) => {
     setOpenDays((current) => {
       const next = new Set(current);
@@ -404,10 +437,7 @@ export function useCreateGuideForm(): CreateGuideFormState {
     setBestTime,
     coverImage,
     setCoverImage,
-
-    photos,
-    addPhoto,
-    removePhoto,
+    clearCoverImage,
 
     tags,
     addTag,
@@ -427,6 +457,8 @@ export function useCreateGuideForm(): CreateGuideFormState {
     removeStop,
     moveStop,
     updateStop,
+    setStopPhoto,
+    clearStopPhoto,
 
     isDayOpen: (dayId) => openDays.has(dayId),
     toggleDay,

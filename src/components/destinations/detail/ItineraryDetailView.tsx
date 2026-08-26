@@ -7,7 +7,7 @@ import type { StopImagePair } from "@/lib/unsplash";
 import { useGuideDetail } from "@/lib/hooks/useGuideDetail";
 import { useMediaQuery } from "@/lib/utils/useMediaQuery";
 import { MapPinIcon } from "@/components/icons";
-import GuideHero from "./GuideHero";
+import GuideHero, { type HeroImageFit } from "./GuideHero";
 import GuideStatsStrip from "./GuideStatsStrip";
 import CollapsibleSection from "./CollapsibleSection";
 import DaySection from "./DaySection";
@@ -30,6 +30,12 @@ export interface DetailHero {
   /** `undefined` for a create-guide draft with no cover chosen yet. */
   image?: string;
   imageAlt?: string;
+  /**
+   * Defaults to `"cover"`, the published look. Only the create-guide preview
+   * overrides it — an author's upload can be any aspect ratio and needs to be
+   * shown whole. See `HeroImageFit`.
+   */
+  imageFit?: HeroImageFit;
   /** Community guides only — a generated plan is never "verified". */
   verified?: boolean;
   /** Photographer attribution, when the photo source requires one. */
@@ -170,6 +176,7 @@ export default function ItineraryDetailView({
           tags={hero.tags}
           image={hero.image}
           imageAlt={hero.imageAlt}
+          imageFit={hero.imageFit}
           verified={hero.verified}
           credit={hero.credit}
         />
