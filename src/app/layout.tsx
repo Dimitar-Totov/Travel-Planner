@@ -20,6 +20,9 @@ export const metadata: Metadata = {
   title: "Travel Planner — your whole trip, planned from one sentence",
   description:
     "Tell Travel Planner where, how long, and your budget. Get back a mapped day-by-day route, real flights and stays, and a checklist tuned to your dates — in seconds.",
+  icons: {
+    icon: "/icon.jpeg",
+  },
 };
 
 export default function RootLayout({
