@@ -116,6 +116,18 @@ function parsePublishedAt(raw: string, slug: string): Date {
  * — there is no way to sign in as this account. That's deliberate: it exists
  * only to satisfy `Guide.author`'s required reference, not to be a usable
  * login.
+ *
+ * Created with `role: "guide"` rather than letting `User.ts`'s schema
+ * default hand it the ordinary `"user"` role: this account is the author of
+ * record on all nineteen seeded guides, so once `/create-guide` is actually
+ * gated on the `"guide"` role (see the TODO in `README.md`), the account
+ * that produced this content should already hold it rather than being
+ * unable to re-publish or edit its own guides. `ensureSeedAuthor` only runs
+ * this branch on first creation — it short-circuits above on an existing
+ * user, so a database seeded before this field existed needs
+ * `npm run backfill:user-roles` (which only fills in a *missing* role, and
+ * would leave this account at the schema default of `"user"`) or a manual
+ * update to pick up `"guide"` instead.
  */
 async function ensureSeedAuthor(): Promise<mongoose.Types.ObjectId> {
   const existing = await User.findOne({ username: SEED_AUTHOR_USERNAME });
@@ -133,6 +145,7 @@ async function ensureSeedAuthor(): Promise<mongoose.Types.ObjectId> {
       username: SEED_AUTHOR_USERNAME,
       email: SEED_AUTHOR_EMAIL,
       password,
+      role: "guide",
     });
     console.log(
       `[seed-guides] created seed author "${SEED_AUTHOR_USERNAME}" (${created.id})`,

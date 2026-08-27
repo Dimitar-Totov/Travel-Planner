@@ -12,6 +12,7 @@ import {
   revokeFamilyByToken,
   rotateRefreshToken,
 } from "@/services/refreshTokens";
+import { getUserRole } from "@/services/users";
 
 /**
  * Path prefixes that require an authenticated session.
@@ -93,6 +94,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           id: user.id as string,
           email: user.email,
           username: user.username,
+          role: user.role,
         };
       },
     }),
@@ -132,6 +134,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         token.id = user.id;
         token.username = user.username;
+        token.role = user.role;
         token.refreshToken = issued.token;
         token.refreshTokenExpires = issued.expiresAt.getTime();
         token.accessTokenExpires = Date.now() + ACCESS_TOKEN_TTL_MS;
@@ -157,9 +160,47 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
+        // Assign the rotation result *before* touching the role. If the
+        // role lookup below throws, the outer catch returns `token`
+        // unchanged - and by this point that "unchanged" token already
+        // carries the new refresh token, not the one that was just spent.
+        // Getting this order backwards would mean a role-lookup failure
+        // (nothing to do with the token at all) hands the caller back a
+        // token pointing at an already-rotated parent, which reads as a
+        // replay outside `ROTATION_GRACE_MS` and revokes the entire
+        // family - i.e. a database hiccup on an unrelated query would sign
+        // the user out. Committing the rotation first means that can't
+        // happen: the worst a failed role refresh can do is leave `role`
+        // stale for one more access window.
         token.refreshToken = rotated.token;
         token.refreshTokenExpires = rotated.expiresAt.getTime();
         token.accessTokenExpires = Date.now() + ACCESS_TOKEN_TTL_MS;
+
+        // Refreshing the role here - not just at sign-in - is what lets a
+        // role change (granted by hand today, through an admin panel later)
+        // reach an already-signed-in user within one access window instead
+        // of requiring them to sign out and back in. Its own try/catch,
+        // deliberately separate from the rotation above: a database blip on
+        // this read is not a reason to fail the rotation that already
+        // succeeded, so it falls back to the role this token already had.
+        try {
+          const role = await getUserRole(token.id);
+
+          // `null` means the user row is gone - not a query failure, an
+          // actual "this account no longer exists". Unlike a role-lookup
+          // *error*, that's a real reason to end the session, the same way
+          // a rotated-away refresh token does above.
+          if (role === null) {
+            return null;
+          }
+
+          token.role = role;
+        } catch (error) {
+          console.error(
+            "[auth] failed to refresh user role during rotation",
+            error,
+          );
+        }
 
         return token;
       } catch (error) {
@@ -175,6 +216,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user) {
         session.user.id = token.id;
         session.user.username = token.username;
+        session.user.role = token.role;
       }
       return session;
     },

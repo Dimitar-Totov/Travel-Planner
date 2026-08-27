@@ -19,6 +19,11 @@ after implementing a feature or fixing a bug. Only run tests when explicitly ask
   `src/lib/destinationGuides.ts`/`guideItineraries.ts` into MongoDB as published `Guide`
   documents (`scripts/seed-guides.ts`). Idempotent — safe to run more than once. See
   "Destinations" below.
+- `npm run backfill:user-roles` — one-off: sets `role: "user"` on every `User` document
+  that predates the field (`scripts/backfill-user-roles.ts`). Idempotent. Needed because a
+  Mongoose `default` is applied at hydration only, so `user.role` already _reads_ as
+  `"user"` for those accounts while the key is genuinely absent in Mongo — which means
+  `.lean()` reads and any `find({ role: … })` filter skip them. See "Roles" below.
 
 No test runner is set up yet.
 
@@ -149,8 +154,8 @@ refresh-token layer below. Requires `AUTH_SECRET` (`npx auth secret`) on top of
   `authorize()` looks the user up with `.select("+password")` (the field is `select: false`
   by default) and bcrypt-compares against a dummy hash when no user matched, so an unknown
   email and a wrong password are indistinguishable in both result and timing. The `jwt`/
-  `session` callbacks carry `id` + `username` onto `session.user`; there is **no** `name`
-  field — use `session.user.username`. Types come from `types/next-auth.d.ts`, which
+  `session` callbacks carry `id` + `username` + `role` onto `session.user`; there is
+  **no** `name` field — use `session.user.username`. Types come from `types/next-auth.d.ts`, which
   augments `"next-auth"` and **`"@auth/core/jwt"`** (augmenting `"next-auth/jwt"` does not
   merge — it's a type-only re-export).
 - Route protection is a single `PROTECTED_PATHS` array in `lib/auth.ts`, read by the
@@ -163,6 +168,41 @@ refresh-token layer below. Requires `AUTH_SECRET` (`npx auth secret`) on top of
   `{error,fields:{…}}`, 409 `{error}` (duplicate, caught from Mongo's `E11000` rather than a
   racy pre-check), 500 `{error}`. Password hashing happens **only** in `User`'s `pre("save")`
   hook (guarded by `isModified`) — never hash before calling `User.create`.
+
+#### Roles (`src/lib/roles.ts`, `src/services/users.ts`)
+
+`USER_ROLES` is `["user", "guide", "admin"]`, and `lib/roles.ts` is its only definition —
+`models/User.ts`'s `enum`, the `types/next-auth.d.ts` augmentation and any future guard all
+read it from there. The module stays dependency-free (no mongoose/bcrypt/`node:crypto`) for
+the same reason `lib/validation/auth.ts` does: client components may import it.
+
+- **The schema `default` on `User.role` is the guarantee, not any call site.** `POST
+/api/users` deliberately does _not_ pass `role` to `User.create`, so every creation path —
+  the registration route, `scripts/seed-guides.ts`, anything added later — lands on `"user"`
+  without having to remember to. A client can't smuggle one in either: `registerSchema` is a
+  plain `z.object` with no `role` key, so `result.data` strips it, and the route's destructure
+  only pulls three fields regardless. Both of those must stay true.
+- `"admin"` is declared with **no code path that grants it** — the first admin is a manual
+  database update. It's in the enum now because the array _is_ the database constraint, and
+  widening it later means a schema change plus an audit of every exhaustive switch.
+- **`session.user.role` / `token.role` are a ≤15-minute-stale snapshot, not a live read.**
+  The `jwt` callback stores the role at sign-in and re-reads it via `getUserRole`
+  (`services/users.ts`) on every refresh rotation, so a role change reaches a signed-in user
+  within one `ACCESS_TOKEN_TTL_MS` window without forcing a sign-out. Good enough to render
+  with; **re-check the database at the point of a privileged mutation** rather than trusting
+  the claim.
+- **Ordering inside the rotation branch is load-bearing.** `token.refreshToken` and friends
+  are committed from the rotation result _before_ the role is read, and the role read has its
+  own nested try/catch. Otherwise a failed role lookup would fall into the outer catch, which
+  returns `token` unchanged — i.e. still holding the already-spent parent token, which reads
+  as replay outside `ROTATION_GRACE_MS` and revokes the whole family. A database blip on an
+  unrelated query would sign the user out.
+- `getUserRole` follows `rotateRefreshToken`'s contract: `null` means the user was deleted
+  (the `jwt` callback returns `null`, ending the session); a _thrown_ error means
+  infrastructure, and the session survives on its cached role.
+- Nothing reads the role for an authorization decision yet — gating `/create-guide` and
+  `POST /api/guides` on `"guide"`/`"admin"`, and an admin panel to grant it, are still TODO.
+  Note `README.md` calls this role `"tourist-guide"`; the implemented value is `"guide"`.
 
 #### Refresh tokens (`src/services/refreshTokens.ts`, `src/models/RefreshToken.ts`)
 

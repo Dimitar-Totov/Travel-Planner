@@ -21,9 +21,13 @@ export const metadata: Metadata = {
  * to the shell instead — it must come and go with the Preview mode, and the
  * mode is client state.
  *
- * **Not gated.** `/create-guide` is deliberately reachable by anyone for now;
- * there are no roles in the auth layer yet and Publish is inert, so there is
- * nothing to protect. See the TODO in `README.md`.
+ * **Not gated.** `/create-guide` is deliberately reachable by anyone for now.
+ * A `role` now exists on every user and rides the session (`lib/roles.ts`,
+ * `session.user.role`), but nothing reads it for an authorization decision
+ * yet — this route has no `PROTECTED_PATHS` entry and no role check, so an
+ * anonymous author can still write a whole guide and only meet
+ * `POST /api/guides`' 401 at publish. Gating it on `"guide"`/`"admin"` is the
+ * next phase; see the TODO in `README.md`.
  */
 export default function CreateGuidePage() {
   return (
