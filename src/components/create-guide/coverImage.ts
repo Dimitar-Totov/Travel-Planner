@@ -1,3 +1,5 @@
+import type { DraftPhoto } from "@/lib/hooks/useCreateGuideForm";
+
 /**
  * The value to hand `GuideHero` for the cover photo.
  *
@@ -7,7 +9,6 @@
  * to allow-list here. `undefined` when nothing has been uploaded yet, which
  * `GuideHero` renders as a plain background rather than a stand-in photo.
  */
-export function coverImageSrc(value: string): string | undefined {
-  const trimmed = value.trim();
-  return trimmed !== "" ? trimmed : undefined;
+export function coverImageSrc(photo: DraftPhoto | null): string | undefined {
+  return photo?.src.trim() || undefined;
 }

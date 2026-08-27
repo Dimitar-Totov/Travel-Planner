@@ -29,6 +29,6 @@ export { auth as proxy } from "@/lib/auth";
  */
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+    "/((?!api|_next/static|_next/image|favicon.png|sitemap.xml|robots.txt).*)",
   ],
 };

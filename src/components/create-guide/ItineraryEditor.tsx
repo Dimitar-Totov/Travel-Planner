@@ -161,6 +161,12 @@ export default function ItineraryEditor({
                           }
                           onRemove={() => form.removeStop(day.id, stop.id)}
                           onOpenPicker={() => form.openPicker(day.id, stop.id)}
+                          onSetPhoto={(dataUrl) =>
+                            form.setStopPhoto(day.id, stop.id, dataUrl)
+                          }
+                          onClearPhoto={() =>
+                            form.clearStopPhoto(day.id, stop.id)
+                          }
                         />
                       ))}
                     </ul>

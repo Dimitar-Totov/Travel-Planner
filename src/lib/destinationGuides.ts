@@ -1,11 +1,21 @@
 /**
- * Hardcoded content for `/destinations` — the community guide feed.
+ * Seed source data for the `guides` collection — **no longer what
+ * `/destinations` renders.** The feed now reads published `Guide` documents
+ * from MongoDB via `src/services/guides.ts` (`listPublishedGuides`); this
+ * array is only `scripts/seed-guides.ts`'s input, run once to populate the
+ * database with the same guides that used to be hardcoded here.
  *
- * There is no backend behind this yet: the twelve guides below are static copy
- * ported from the design doc, and every filter/sort on the page runs over this
- * array in the browser. Cover photos are real Unsplash images (`coverImage`,
- * fixed photo IDs — no API key needed); avatars are still CSS gradients, the
- * same placeholder trick `Hotel.gradient` uses on the PlanBoard.
+ * Kept (not deleted) because it's still that seed's source of truth, and
+ * because `DestinationGuide` — the view shape — is defined here and remains
+ * live: `src/services/guides.ts` maps every Mongo document onto exactly this
+ * type, so every component below the feed (`GuideCard`, `GuideAuthorBar`, …)
+ * is unchanged.
+ *
+ * Cover photos are real Unsplash images (`coverImage`, fixed photo IDs — no
+ * API key needed); avatars are still CSS gradients in the seeded data, the
+ * same placeholder trick `Hotel.gradient` uses on the PlanBoard — the live
+ * path now derives a gradient per author instead (`deriveAvatarGradient` in
+ * `src/services/guides.ts`).
  */
 
 export interface DestinationGuide {
@@ -19,8 +29,15 @@ export interface DestinationGuide {
   views: number;
   /** Trip length in days — drives the "Weekends" filter (days <= 4). */
   days: number;
-  /** Rough total per person — drives the "Budget under €1k" filter. */
-  approxCostEUR: number;
+  /**
+   * Rough total per person — drives the "Budget under €1k" filter.
+   *
+   * Optional: every guide in this module has one, but a guide read out of
+   * Mongo may not (`useCreateGuideForm` collects no budget), and a guide with
+   * no disclosed cost is excluded from the budget filter rather than assumed
+   * cheap. See `services/guides.ts`.
+   */
+  approxCostEUR?: number;
   /** Display string for the thumbnail pill, e.g. "7 days · ¥¥". */
   meta: string;
   /** Where the guide is set; used as the thumbnail's accessible description. */

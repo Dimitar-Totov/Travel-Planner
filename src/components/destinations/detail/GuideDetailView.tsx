@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { DestinationGuide } from "@/lib/destinationGuides";
 import type { GuideItinerary } from "@/lib/guideItineraries";
+import type { StopImagePair } from "@/lib/unsplash";
 import GuideAuthorBar from "./GuideAuthorBar";
 import ItineraryDetailView from "./ItineraryDetailView";
 
@@ -11,6 +12,14 @@ interface GuideDetailViewProps {
    *  server so the client bundle never imports the guide data module. */
   heroImage: string;
   stopCount: number;
+  /**
+   * Every stop's photo, resolved server-side from that stop's stored
+   * `photoUrl` (`src/services/guides.ts`'s `getPublishedGuideDetail`) — not
+   * a live Unsplash call. A stop with no uploaded photo is simply absent
+   * from the map; `ItineraryDetailView`/`StopThumb` already render the
+   * gradient placeholder for a missing key.
+   */
+  stopImages: Record<string, StopImagePair>;
   /** `SiteFooter`, passed as a slot so it stays a server component. */
   footer: ReactNode;
 }
@@ -25,25 +34,23 @@ interface GuideDetailViewProps {
  * author bar is a client component referenced from here, exactly as the footer
  * slot is, so nothing extra reaches the browser.
  *
- * Stop photographs are deliberately **not** resolved here. `getStopImages`/
- * `resolveStopImages` (`src/lib/unsplash.ts`) call Unsplash live, and this
- * route is not static — `SiteNav` reads the session cookie via `auth()`,
- * which forces per-request rendering — so every real page view would re-hit
- * Unsplash for all of that guide's stops. Measured directly: one uncached
- * view of the Paris guide (24 stops) exhausted the free tier's entire
- * 50-requests/hour quota by itself. `/plan` is the only live-Unsplash path
- * today (`PlanDetailView.tsx`), because a plan is one bounded request
- * triggered by a deliberate action, not passive browsing. Guides pass an
- * empty `stopImages` map, which `ItineraryDetailView` already renders as the
- * ordinary gradient placeholder for every stop — until a future pass backs
- * this with a MongoDB-resolved store instead of a live call (`src/models/`
- * has the existing mongoose-model pattern to follow when that lands).
+ * Stop photographs are resolved from storage, not Unsplash. Unlike `/plan`
+ * (`resolveStopImages`, `src/lib/unsplash.ts`), which hits Unsplash's live
+ * search API and is why this route historically passed an empty
+ * `stopImages` map — a real Unsplash lookup here, on a per-request page
+ * (`SiteNav` reads the session cookie via `auth()`, forcing dynamic
+ * rendering), measurably exhausted the free tier's entire 50-requests/hour
+ * quota on a single 24-stop guide view — every stop photo here now comes
+ * from that stop's own stored `photoUrl` (`IGuideStop.photoUrl`,
+ * `src/models/Guide.ts`), keyed the same way by the caller. No network call,
+ * so no rate limit to dodge.
  */
 export default function GuideDetailView({
   guide,
   itinerary,
   heroImage,
   stopCount,
+  stopImages,
   footer,
 }: GuideDetailViewProps) {
   return (
@@ -69,7 +76,7 @@ export default function GuideDetailView({
       }}
       generalTips={itinerary.generalTips}
       days={itinerary.days}
-      stopImages={{}}
+      stopImages={stopImages}
       footer={footer}
     />
   );

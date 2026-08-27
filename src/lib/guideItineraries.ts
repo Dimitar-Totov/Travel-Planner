@@ -1,17 +1,29 @@
 /**
- * Day-by-day itinerary content for `/destinations/guide/[guideId]/details`.
+ * Seed source data for the `guides` collection — **no longer what
+ * `/destinations/guide/[guideId]/details` renders.** The detail route now
+ * reads a published `Guide` document from MongoDB via
+ * `src/services/guides.ts` (`getPublishedGuideDetail`); this module is only
+ * `scripts/seed-guides.ts`'s input for the itinerary half of each seeded
+ * guide (`destinationGuides.ts` holds the feed-card half).
  *
- * Companion to `destinationGuides.ts`: that file holds what the feed card needs
- * (title, blurb, author, cover photo), this one holds everything the detail page
- * adds on top — the intro, the general tips, and the ordered day/stop list that
- * drives both the left-hand reading column and the map.
+ * Still live, and not seed-only: `GuideItinerary` — the view shape — plus
+ * `heroImageFor` and `countStops` are defined here and are exactly what
+ * `src/services/guides.ts` maps a Mongo document onto / what the detail page
+ * still calls, so `ItineraryDetailView` and everything under it is
+ * unchanged. `getGuideItinerary`/`getGuideDetail` (the hardcoded-array
+ * lookups) and the `guideItineraries` record itself are dead as render-path
+ * code now — nothing outside the seed script calls them — but kept as the
+ * seed's source and because deleting them wasn't asked for.
  *
  * Stop coordinates are real: they are what the map plots, so a wrong pair puts a
  * pin in the sea. Keep them accurate when adding stops.
  *
- * There is deliberately no per-stop photo field. Uploads are a later feature, so
- * stop thumbnails render as a branded placeholder; the only real photograph on
- * the page is the guide's own cover, reused as the hero via `heroImageFor`.
+ * Per-stop photos now exist for real (`IGuideStop.photoUrl`,
+ * `src/models/Guide.ts`) and are wired up on the live detail page
+ * (`src/services/guides.ts`'s `toStopImages`) — but every stop below has
+ * none, so a guide seeded from this file still renders the branded
+ * placeholder for each stop, same as before. The only real photograph a
+ * seeded guide has is its cover, reused as the hero via `heroImageFor`.
  */
 
 import type { DestinationGuide } from "./destinationGuides";
@@ -51,8 +63,20 @@ export interface GuideItinerary {
 }
 
 /**
- * The feed's cover photos are requested at `w=800`, which is soft blown up
- * across a full-width hero — ask Unsplash for the same photo twice as wide.
+ * Requests a bigger version of the guide's cover photo for the full-bleed
+ * hero, where the feed thumbnail's `w=800` would look soft blown up.
+ *
+ * This only actually does anything for an **Unsplash-hosted cover** — the
+ * seeded guides, whose URL encodes its size as a `w=800` query parameter
+ * (`?q=80&w=800&auto=format&fit=crop`) that this bumps to `w=1600`. A guide
+ * published through `/create-guide` has an **R2-hosted** cover instead
+ * (`r2PublicUrl`, `src/lib/storage/r2.ts`), served with **no query string at
+ * all** — `next.config.ts` locks that `remotePattern` to `search: ""` — so
+ * there is no `"w=800"` substring to find, `.replace` is a silent no-op, and
+ * the original URL comes back unchanged. Confirmed, not assumed: that's the
+ * correct behaviour for that host, not a bug this function is hiding — an R2
+ * cover is the author's own upload at whatever resolution they provided,
+ * not a server-resizable derivative the way an Unsplash URL is.
  */
 export function heroImageFor(guide: DestinationGuide): string {
   return guide.coverImage.replace("w=800", "w=1600");
