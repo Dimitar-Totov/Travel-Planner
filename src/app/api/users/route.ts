@@ -10,7 +10,7 @@ import User from "@/models/User";
  * Body: `{ "username": string, "email": string, "password": string }`
  *
  * Responses:
- * - 201 `{ id, username, email, createdAt }` (password never returned)
+ * - 201 `{ id, username, email, role, createdAt }` (password never returned)
  * - 400 `{ error, fields: { [field]: message } }` on invalid input
  * - 409 `{ error }` if the email or username is already taken
  * - 500 `{ error }` on unexpected failure
@@ -53,6 +53,17 @@ export async function POST(request: Request): Promise<Response> {
 
     // Hashing happens in the model's pre("save") hook - pass the
     // plaintext through once, don't hash it here.
+    //
+    // `role` is deliberately absent from this call, not just from
+    // `registerSchema`. It's server-owned end to end: `registerSchema` is a
+    // plain `z.object` with no `role` key, so `result.data` would strip a
+    // client-supplied `"role": "admin"` even if it slipped past this
+    // destructure — but the destructure above is also explicit about only
+    // pulling `username`/`email`/`password` off it, and this call only
+    // forwards those three, so there are two independent reasons a body
+    // can't hand itself a role. The schema `default` on `User.role`
+    // (`models/User.ts`) is the single place that actually assigns one.
+    // Both of those must stay true for this comment to keep being correct.
     const user = await User.create({ username, email, password });
 
     return Response.json(
@@ -60,6 +71,7 @@ export async function POST(request: Request): Promise<Response> {
         id: user.id as string,
         username: user.username,
         email: user.email,
+        role: user.role,
         createdAt: user.createdAt,
       },
       { status: 201 },

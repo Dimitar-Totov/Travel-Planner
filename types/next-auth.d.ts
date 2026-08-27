@@ -1,5 +1,13 @@
 import type { DefaultSession } from "next-auth";
 
+import type { UserRole } from "@/lib/roles";
+
+// `@/*` -> `./src/*` (`tsconfig.json`) resolves from this file too, even
+// though it lives in `types/` rather than under `src/`: TypeScript's `paths`
+// map is resolved against the project's `baseUrl`/config, not against the
+// importing file's own location, and `scripts/seed-guides.ts` (also outside
+// `src/`) already relies on the same thing for `@/lib/mongodb`.
+
 // Module augmentation for Auth.js v5 (next-auth@beta). This file is picked up
 // automatically because `tsconfig.json` includes `**/*.ts`; unlike
 // `types/routes.d.ts` and `types/validator.ts` in this same folder, it is
@@ -8,12 +16,14 @@ declare module "next-auth" {
   /** The object returned by the Credentials provider's `authorize()`. */
   interface User {
     username: string;
+    role: UserRole;
   }
 
   interface Session {
     user: {
       id: string;
       username: string;
+      role: UserRole;
     } & DefaultSession["user"];
   }
 }
@@ -43,6 +53,19 @@ declare module "@auth/core/jwt" {
     refreshToken: string;
     /** Epoch ms at which `refreshToken` itself expires. */
     refreshTokenExpires: number;
+    /**
+     * A snapshot of the user's role as of the last time this token was
+     * minted or rotated - at most `ACCESS_TOKEN_TTL_MS` (15 minutes) stale,
+     * since the `jwt` callback's rotation branch re-reads it from the
+     * database on every rotation (`src/lib/auth.ts`, `services/users.ts`).
+     * It is not a live read: a role change made *within* someone's current
+     * 15-minute access window won't be reflected here until the next
+     * rotation. Treat it as good enough to render (nav links, an eventual
+     * "you're a guide" badge) but never as authorization for a privileged
+     * mutation - re-check `getUserRole` against the database at the point
+     * of the mutation instead of trusting this claim.
+     */
+    role: UserRole;
   }
 }
 
