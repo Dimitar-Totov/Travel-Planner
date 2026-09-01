@@ -1,14 +1,13 @@
 import { MongoServerError } from "mongodb";
 
 import { auth } from "@/lib/auth";
+import { findInvalidPhotoUrl } from "@/lib/guides/photoUrls";
 import { connectDB } from "@/lib/mongodb";
 import {
   draftGuideSchema,
   guideStatusSchema,
   nestedFieldErrorsOf,
   publishGuideSchema,
-  type DraftGuideInput,
-  type PublishGuideInput,
 } from "@/lib/validation/guide";
 import Guide from "@/models/Guide";
 
@@ -101,7 +100,9 @@ export async function POST(request: Request): Promise<Response> {
   // Host-check every photo URL against R2's public bucket domain. This can't
   // live in `lib/validation/guide.ts` — that module is safe for a client
   // component to import and must stay free of server-only env reads — so it
-  // happens here, right before the write. Without it, an author could POST
+  // lives in `lib/guides/photoUrls.ts` and runs here, right before the write.
+  // (`PATCH /api/guides/[guideId]` runs the same check from the same module,
+  // which is why it isn't a local function anymore.) Without it, an author could POST
   // `coverImageUrl: "https://anywhere.example/x.jpg"`, which would validate
   // fine (it *is* a URL), persist, and only fail later at render time against
   // `next/image`'s `remotePatterns` — a confusing failure far from its cause.
@@ -211,74 +212,4 @@ function slugify(title: string): string {
       .slice(0, MAX_SLUG_LENGTH)
       .replace(/-+$/g, "")
   ); // the length cut above can re-expose a trailing hyphen
-}
-
-type PhotoUrlIssue = null | "unconfigured" | { field: string; message: string };
-
-/**
- * Walks every photo URL in a validated guide input (`coverImageUrl`, each
- * stop's `photoUrl`) and confirms it points at this app's own R2 public
- * bucket rather than an arbitrary host. Returns the first problem found:
- * `"unconfigured"` if `R2_PUBLIC_BASE_URL` itself isn't set (a server
- * misconfiguration, not a client error), a `{ field, message }` pair naming
- * the offending path (e.g. `"days.2.stops.5.photoUrl"`) if a URL doesn't
- * match, or `null` if every photo URL present is fine (including the common
- * case of no photo URLs at all).
- */
-function findInvalidPhotoUrl(
-  input: DraftGuideInput | PublishGuideInput,
-): PhotoUrlIssue {
-  const candidates: Array<{ field: string; url: string | undefined }> = [
-    { field: "coverImageUrl", url: input.coverImageUrl },
-  ];
-
-  input.days.forEach((day, dayIndex) => {
-    day.stops.forEach((stop, stopIndex) => {
-      candidates.push({
-        field: `days.${dayIndex}.stops.${stopIndex}.photoUrl`,
-        url: stop.photoUrl,
-      });
-    });
-  });
-
-  const present = candidates.filter(
-    (candidate): candidate is { field: string; url: string } =>
-      typeof candidate.url === "string",
-  );
-  if (present.length === 0) {
-    return null;
-  }
-
-  const base = process.env.R2_PUBLIC_BASE_URL;
-  if (!base) {
-    return "unconfigured";
-  }
-
-  let baseHost: string;
-  try {
-    baseHost = new URL(base).host;
-  } catch {
-    return "unconfigured";
-  }
-
-  for (const candidate of present) {
-    // Already validated as a well-formed http(s) URL by `httpUrlSchema`, so
-    // this `new URL` cannot itself throw — but guard it anyway rather than
-    // assume a validator upstream never changes.
-    let host: string;
-    try {
-      host = new URL(candidate.url).host;
-    } catch {
-      return { field: candidate.field, message: "Must be a valid URL." };
-    }
-
-    if (host !== baseHost) {
-      return {
-        field: candidate.field,
-        message: "Photo URL must point to this app's storage bucket.",
-      };
-    }
-  }
-
-  return null;
 }

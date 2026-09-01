@@ -4,6 +4,9 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence } from "motion/react";
 import { useCreateGuideForm } from "@/lib/hooks/useCreateGuideForm";
 import { usePublishGuide } from "@/lib/hooks/usePublishGuide";
+// Type-only, so the service (and mongoose with it) never reaches the client
+// bundle — the import statement is erased outright.
+import type { EditableGuide } from "@/services/guides";
 import { EyeIcon, SpinnerIcon, UploadIcon } from "@/components/icons";
 import CreateGuideForm from "./CreateGuideForm";
 import CreateGuidePreview from "./CreateGuidePreview";
@@ -24,18 +27,36 @@ interface CreateGuidePageShellProps {
   /** `SiteFooter`, same reason. In Preview it is threaded further down into
    *  `ItineraryDetailView`, which only shows it below `lg`. */
   footer: ReactNode;
+  /**
+   * The saved guide being edited, loaded by
+   * `/destinations/guide/[guideId]/edit` through `getGuideForAuthor` — the one
+   * thing that tells this shell apart from the `/create-guide` one. Omitted
+   * there, and everything below falls back to the create wording and a blank
+   * draft.
+   *
+   * Read once, at mount, by `useCreateGuideForm`; changing it afterwards would
+   * not re-seed the editor (and must not — it would overwrite whatever the
+   * author has typed since).
+   */
+  initialGuide?: EditableGuide;
 }
 
 /**
- * The `/create-guide` client boundary: the draft, the Edit/Preview switch, and
- * the header bar both modes share.
+ * The client boundary behind both authoring routes: the draft, the Edit/Preview
+ * switch, and the header bar both modes share.
  *
- * Publish is wired to the real API, but only as a button and a label — the
- * whole flow (pre-flight, photo uploads, `POST /api/guides`, every failure
- * case) lives in `lib/hooks/usePublishGuide.ts`, and everything it has to say
- * back is rendered by `PublishStatus`. That panel sits *inside* this sticky
- * block on purpose: the button can be pressed at any scroll position, so a
- * result left in document flow would land off-screen.
+ * `/create-guide` renders it with no `initialGuide` and writes a new guide;
+ * `/destinations/guide/[guideId]/edit` renders it with one and saves back over
+ * that guide. One shell rather than two, because everything structural here —
+ * the mode switch, the scroll restoration, the sticky bar, the one-map-at-a-time
+ * gate — is identical in both; what differs is a slug, a status and the words.
+ *
+ * Saving is wired to the real API, but only as a button and a label — the
+ * whole flow (pre-flight, photo uploads, `POST`/`PATCH /api/guides`, every
+ * failure case) lives in `lib/hooks/usePublishGuide.ts`, and everything it has
+ * to say back is rendered by `PublishStatus`. That panel sits *inside* this
+ * sticky block on purpose: the button can be pressed at any scroll position, so
+ * a result left in document flow would land off-screen.
  *
  * The two modes are mutually exclusive branches on purpose. Preview mounts a
  * MapLibre map (through `ItineraryDetailView`) and Edit can mount the location
@@ -51,9 +72,22 @@ interface CreateGuidePageShellProps {
 export default function CreateGuidePageShell({
   nav,
   footer,
+  initialGuide,
 }: CreateGuidePageShellProps) {
-  const form = useCreateGuideForm();
-  const publish = usePublishGuide();
+  const form = useCreateGuideForm(initialGuide);
+  const publish = usePublishGuide(
+    initialGuide
+      ? {
+          slug: initialGuide.slug,
+          status: initialGuide.status,
+          // Both stored headings ride along so a save can tell an actual
+          // retitle apart from a save that never touched the headline — see
+          // `resolveTitle`.
+          title: initialGuide.title,
+          heroTitle: initialGuide.heroTitle,
+        }
+      : undefined,
+  );
   const [mode, setMode] = useState<Mode>("edit");
   // Edit lives in normal document flow (window scroll), and swapping to
   // Preview unmounts it entirely, so the browser has nothing to remember the
@@ -75,26 +109,46 @@ export default function CreateGuidePageShell({
   }, [mode]);
 
   const previewing = mode === "preview";
+  const editing = initialGuide !== undefined;
 
   // Kept short — the row under the bar carries the detail (and the running
   // photo count), so the button doesn't reflow the whole header as it works.
-  const publishLabel =
+  const submitLabel =
     publish.phase === "uploading"
       ? "Uploading…"
       : publish.phase === "saving"
         ? "Saving…"
-        : "Publish";
+        : editing
+          ? "Save changes"
+          : "Publish";
+
+  const heading = editing ? "Edit guide" : "Create a guide";
+
+  /**
+   * The tail of the sub-line, and the one place this page has to be honest
+   * about what pressing the button does.
+   *
+   * There is no review step and no scheduled publish anywhere in this app: a
+   * `PATCH` on a published guide is visible to readers on their next request.
+   * Saying "saved" and leaving the author to discover that would be the
+   * dishonest version.
+   */
+  const statusLine = !editing
+    ? "draft kept in this tab only"
+    : initialGuide.status === "published"
+      ? "already published — saving updates it for readers straight away"
+      : "still a draft — saving won’t publish it";
 
   // The preview renders `GuideHero`, which owns the page's `<h1>`. Two of them
   // would compete in a screen reader's document outline, so the bar's title
   // steps down to plain text while that is on screen.
   const barTitle = previewing ? (
     <p className="text-[17px] font-extrabold tracking-[-.02em] text-ink lg:text-[23px]">
-      Create a guide
+      {heading}
     </p>
   ) : (
     <h1 className="text-[17px] font-extrabold tracking-[-.02em] text-ink lg:text-[23px]">
-      Create a guide
+      {heading}
     </h1>
   );
 
@@ -112,8 +166,8 @@ export default function CreateGuidePageShell({
             {barTitle}
             <p className="mt-0.5 text-[12.5px] text-muted lg:mt-1 lg:text-[15.5px]">
               {form.days.length} {form.days.length === 1 ? "day" : "days"} ·{" "}
-              {form.stopCount} {form.stopCount === 1 ? "stop" : "stops"} · draft
-              kept in this tab only
+              {form.stopCount} {form.stopCount === 1 ? "stop" : "stops"} ·{" "}
+              {statusLine}
             </p>
           </div>
 
@@ -161,12 +215,13 @@ export default function CreateGuidePageShell({
               ) : (
                 <UploadIcon size={17} />
               )}
-              {publishLabel}
+              {submitLabel}
             </button>
           </div>
         </div>
 
         <PublishStatus
+          mode={publish.mode}
           phase={publish.phase}
           uploaded={publish.uploaded}
           photoTotal={publish.photoTotal}
@@ -177,7 +232,11 @@ export default function CreateGuidePageShell({
       </div>
 
       {previewing ? (
-        <CreateGuidePreview form={form} footer={footer} />
+        <CreateGuidePreview
+          form={form}
+          editing={initialGuide ? { status: initialGuide.status } : undefined}
+          footer={footer}
+        />
       ) : (
         <>
           <main className="flex-1">

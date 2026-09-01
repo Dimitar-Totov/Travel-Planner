@@ -2,6 +2,9 @@
 
 import { useCallback, useMemo, useState } from "react";
 import type { GuideDay, GuideStop } from "@/lib/itinerary";
+// Type-only, so nothing from the service (mongoose, the model registry) is
+// pulled into the client bundle — the import statement is erased outright.
+import type { EditableGuide } from "@/services/guides";
 
 /**
  * A stop while it is being written.
@@ -50,6 +53,18 @@ export interface DraftDay {
 export interface DraftPhoto {
   id: string;
   src: string;
+  /**
+   * Already stored in R2 — `usePublishGuide` sends this straight through
+   * instead of re-uploading.
+   *
+   * Only ever set by the edit seed below, where `src` is that same public URL
+   * rather than a `data:` string. Re-PUTting bytes that haven't changed would
+   * make every save of a photo-heavy guide as slow as its first publish, and
+   * would orphan a new object in the bucket on each one. A photo the author
+   * swaps in during the edit comes from `newPhoto`, which leaves this unset, so
+   * it uploads the normal way.
+   */
+  uploadedUrl?: string;
 }
 
 /** Which stop the location picker is currently placing. */
@@ -71,6 +86,26 @@ export type MoveDirection = "up" | "down";
  */
 const SEED_DAY_ID = "day-seed";
 const SEED_STOP_ID = "stop-seed";
+
+/**
+ * Ids for the rows of a saved guide loaded into the editor
+ * (`/destinations/guide/[guideId]/edit`).
+ *
+ * Positional and deterministic for exactly the reason the two literals above
+ * are literals: these ids reach the DOM as `id` attributes (`edit-day-<id>`,
+ * `stop-<id>-name`, …), the seed runs during SSR *and* again during hydration,
+ * and `crypto.randomUUID()` would mint a different set each time — a guaranteed
+ * mismatch on a page that can have thirty of them.
+ *
+ * Position is a safe basis *because* it is only ever read once, at seed time.
+ * Every later reorder or removal moves the object — id and all — around inside
+ * the array rather than recomputing anything, so `day-3` still identifying a
+ * day that is now second is correct, not stale. That is the whole point of
+ * these ids existing separately from the index.
+ */
+const seededDayId = (dayIndex: number) => `day-${dayIndex}`;
+const seededStopId = (dayIndex: number, stopIndex: number) =>
+  `${seededDayId(dayIndex)}-stop-${stopIndex}`;
 
 /** Where the map opens when the draft has nothing placed at all. */
 const WORLD_CENTER = { lat: 20, lng: 0 };
@@ -94,6 +129,20 @@ function newPhoto(src: string): DraftPhoto {
   return { id: crypto.randomUUID(), src };
 }
 
+/**
+ * A photo that already lives in R2 — the cover and per-stop photos of a guide
+ * being edited.
+ *
+ * `src` and `uploadedUrl` are the same absolute URL on purpose: `src` is what
+ * the thumbnails and the preview hero render (a normal remote image here, not a
+ * data URL), and `uploadedUrl` is the marker that keeps `usePublishGuide` from
+ * uploading it again. `id` is derived from the row's own seeded id rather than
+ * minted, for the hydration reason above.
+ */
+function hostedPhoto(id: string, url: string): DraftPhoto {
+  return { id, src: url, uploadedUrl: url };
+}
+
 function seedDay(): DraftDay {
   return {
     id: SEED_DAY_ID,
@@ -101,6 +150,36 @@ function seedDay(): DraftDay {
     summary: "",
     stops: [newStop(SEED_STOP_ID, WORLD_CENTER)],
   };
+}
+
+/**
+ * Turns a saved guide's days into editable ones.
+ *
+ * Every seeded stop is `placed: true`: it carries the coordinates its author
+ * actually chose on the map, and `placed` exists only to catch a stop that has
+ * *never* been put on one (see `DraftStop`). Marking these unplaced would make
+ * `usePublishGuide` refuse to save an untouched guide.
+ *
+ * `photoUrl` is peeled off rather than spread through — it is the persisted
+ * shape's field (`IGuideStop.photoUrl`), and the editor holds a photo as a
+ * `DraftPhoto` on `photo` instead, the same as a freshly picked one.
+ */
+function seedDaysFrom(initial: EditableGuide): DraftDay[] {
+  return initial.days.map((day, dayIndex) => ({
+    id: seededDayId(dayIndex),
+    title: day.title,
+    summary: day.summary,
+    stops: day.stops.map((stop, stopIndex) => {
+      const id = seededStopId(dayIndex, stopIndex);
+      const { photoUrl, ...rest } = stop;
+      return {
+        ...rest,
+        id,
+        placed: true,
+        photo: photoUrl ? hostedPhoto(`${id}-photo`, photoUrl) : null,
+      };
+    }),
+  }));
 }
 
 /** Adds `value` unless it is blank or already present. Both the stop rows and
@@ -206,23 +285,46 @@ export interface CreateGuideFormState {
  * it would mean lifting most of it back up to the shell anyway.
  *
  * Follows `useGuideDetail`'s convention: flat state and actions, no reducer, no
- * context. And like everything else authored in this app, it is **in-memory
- * only** — there is no guides-write API and no local persistence anywhere in
- * the codebase, so a reload starts a fresh draft.
+ * context. Editing state itself is **in-memory only** — there is no
+ * autosave and no local persistence anywhere in this codebase, so a reload
+ * throws away whatever hasn't been sent to `POST`/`PATCH /api/guides` yet.
+ *
+ * `initial` is what makes the one editor serve two routes. Omitted
+ * (`/create-guide`) it starts the blank draft it always has: one empty day with
+ * one unplaced stop, open. Supplied (`/destinations/guide/[guideId]/edit`,
+ * which loads it through `getGuideForAuthor`) every field starts from the saved
+ * guide instead — but only *once*: these are `useState` initialisers, so a later
+ * change to `initial` deliberately does not clobber what the author has typed
+ * since. Re-seeding is a remount, not a prop change.
  */
-export function useCreateGuideForm(): CreateGuideFormState {
-  const [heroTitle, setHeroTitle] = useState("");
-  const [heroAccent, setHeroAccent] = useState("");
-  const [blurb, setBlurb] = useState("");
-  const [intro, setIntro] = useState("");
-  const [currency, setCurrency] = useState("€");
-  const [bestTime, setBestTime] = useState("");
-  const [coverImage, setCoverImageState] = useState<DraftPhoto | null>(null);
-  const [tags, setTags] = useState<string[]>([]);
-  const [generalTips, setGeneralTips] = useState<string[]>([]);
-  const [days, setDays] = useState<DraftDay[]>(() => [seedDay()]);
+export function useCreateGuideForm(
+  initial?: EditableGuide,
+): CreateGuideFormState {
+  const [heroTitle, setHeroTitle] = useState(initial?.heroTitle ?? "");
+  const [heroAccent, setHeroAccent] = useState(initial?.heroAccent ?? "");
+  const [blurb, setBlurb] = useState(initial?.blurb ?? "");
+  const [intro, setIntro] = useState(initial?.intro ?? "");
+  // `||` rather than `??`: a guide saved as a draft can genuinely hold `""`
+  // here (`Guide.ts` only requires the field once published), and the editor's
+  // resting default is a euro sign, not an empty currency field.
+  const [currency, setCurrency] = useState(initial?.currency || "€");
+  const [bestTime, setBestTime] = useState(initial?.bestTime ?? "");
+  const [coverImage, setCoverImageState] = useState<DraftPhoto | null>(() =>
+    initial?.coverImageUrl ? hostedPhoto("cover", initial.coverImageUrl) : null,
+  );
+  const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
+  const [generalTips, setGeneralTips] = useState<string[]>(
+    initial?.generalTips ?? [],
+  );
+  const [days, setDays] = useState<DraftDay[]>(() =>
+    initial ? seedDaysFrom(initial) : [seedDay()],
+  );
+  // The first day, open, in both modes. `days` is already this render's value,
+  // so a seeded guide opens its own day 1 rather than a literal that doesn't
+  // exist in it; the fallback only matters for the (API-only) case of a saved
+  // guide with no days at all, where nothing is open until one is added.
   const [openDays, setOpenDays] = useState<ReadonlySet<string>>(
-    () => new Set([SEED_DAY_ID]),
+    () => new Set([days[0]?.id ?? SEED_DAY_ID]),
   );
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
 

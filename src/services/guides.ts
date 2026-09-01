@@ -1,7 +1,7 @@
 import { Types } from "mongoose";
 
 import { connectDB } from "@/lib/mongodb";
-import Guide, { type IStopTransfer } from "@/models/Guide";
+import Guide, { type GuideStatus, type IStopTransfer } from "@/models/Guide";
 // Side-effect import, and load-bearing: `.populate("author")` below resolves
 // `Guide.author`'s `ref: "User"` through mongoose's model registry, and a model
 // only lands in that registry when its module is evaluated. Without this the
@@ -13,8 +13,15 @@ import Guide, { type IStopTransfer } from "@/models/Guide";
 import "@/models/User";
 import type { DestinationGuide } from "@/lib/destinationGuides";
 import type { GuideItinerary } from "@/lib/guideItineraries";
-import type { GuideDay, GuideStop } from "@/lib/itinerary";
+import type { GuideDay, GuideStop, TransferMode } from "@/lib/itinerary";
 import type { DestinationImage, StopImagePair } from "@/lib/unsplash";
+
+/**
+ * Re-exported so a caller of `getGuideForAuthor` can name the `status` it gets
+ * back without importing `@/models/Guide` (and, with it, mongoose) just for a
+ * two-member string union.
+ */
+export type { GuideStatus } from "@/models/Guide";
 
 /**
  * The read side of the `guides` collection — the Mongo counterpart of the
@@ -365,6 +372,21 @@ export interface PublishedGuideDetail {
    *  re-derive this separately (it would need the same raw `photoUrl` data
    *  this service already has and the view types deliberately don't carry). */
   stopImages: Record<string, StopImagePair>;
+  /**
+   * The author's user id as a plain string — `null` when the author reference
+   * doesn't resolve (a deleted user; see `FALLBACK_AUTHOR_NAME`).
+   *
+   * Compared against `session.user.id` by the detail page to decide whether to
+   * render the owner's Edit/Delete controls. It is *only* a rendering hint:
+   * hiding a button is not authorization, and both mutating endpoints
+   * (`PATCH`/`DELETE /api/guides/[guideId]`) re-check ownership against the
+   * database themselves.
+   *
+   * Deliberately not folded into `DestinationGuide` — that view type is the
+   * feed card's shape and is spread into client components wholesale; a raw
+   * user id belongs to the detail page's ownership check, not to every card.
+   */
+  authorId: string | null;
 }
 
 /** One published guide by slug, or `null` if it doesn't exist / isn't
@@ -385,5 +407,183 @@ export async function getPublishedGuideDetail(
     guide: toDestinationGuide(doc),
     itinerary: toGuideItinerary(doc),
     stopImages: toStopImages(doc),
+    // Straight off the already-populated author — no extra query. `.toString()`
+    // is what keeps this side of the boundary JSON-serializable: an `ObjectId`
+    // handed to a client component is a runtime error, not a type error.
+    authorId: doc.author ? doc.author._id.toString() : null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// The editor's read path
+//
+// `getPublishedGuideDetail` above answers "what does a reader see". The types
+// and function below answer "what does the author load back into
+// `/create-guide`'s editor", which is a different question with a different
+// shape: every field the form collects, at *any* status (an author edits their
+// drafts too), and none of the derived/presentational values
+// (`avatarGradient`, `meta`, the formatted `publishedAt`) the reader's view
+// types carry.
+// ---------------------------------------------------------------------------
+
+export interface EditableGuideStop {
+  name: string;
+  lat: number;
+  lng: number;
+  tags: string[];
+  notes: string[];
+  about?: string;
+  address?: string;
+  priceLevel?: number;
+  transfer?: { mode: TransferMode; duration: string; distance: string };
+  highlight?: boolean;
+  /** The stored R2 public URL — what the editor shows in place of a freshly
+   *  picked `data:` URL, and what `PATCH` will send straight back unchanged if
+   *  the author doesn't replace the photo. */
+  photoUrl?: string;
+}
+
+export interface EditableGuideDay {
+  title: string;
+  summary: string;
+  stops: EditableGuideStop[];
+}
+
+/** One guide as its own author edits it — every field `/create-guide`'s editor
+ *  collects, at any `status`, plus the identity the save endpoint needs. */
+export interface EditableGuide {
+  id: string;
+  slug: string;
+  status: GuideStatus;
+  title: string;
+  heroTitle: string;
+  heroAccent: string;
+  blurb: string;
+  intro: string;
+  tags: string[];
+  generalTips: string[];
+  currency: string;
+  bestTime: string;
+  /** `null` when the author never uploaded one (only possible on a draft —
+   *  `publishGuideSchema` and `Guide.ts`'s `requiredWhenPublished` both make it
+   *  mandatory to publish). */
+  coverImageUrl: string | null;
+  days: EditableGuideDay[];
+}
+
+/**
+ * The shape an *editable* `Guide` document takes after `.lean()`. Separate
+ * from `LeanPublishedGuide` rather than a widened version of it, for two
+ * reasons: this read never populates the author (ownership is settled by the
+ * query filter, so there is nothing to look up in `users`), and the content
+ * fields `Guide.ts` marks `requiredWhenPublished` are genuinely optional here
+ * because a draft is allowed to be missing them. Never leaves the module.
+ */
+interface LeanEditableGuide {
+  _id: Types.ObjectId;
+  slug: string;
+  status: GuideStatus;
+  title: string;
+  heroTitle?: string;
+  heroAccent?: string;
+  blurb?: string;
+  intro?: string;
+  tags: string[];
+  generalTips: string[];
+  currency: string;
+  bestTime?: string;
+  coverImageUrl?: string;
+  days: LeanGuideDay[];
+}
+
+function toEditableStop(stop: LeanGuideStop): EditableGuideStop {
+  return {
+    name: stop.name,
+    lat: stop.lat,
+    lng: stop.lng,
+    tags: stop.tags,
+    notes: stop.notes,
+    about: stop.about,
+    address: stop.address,
+    priceLevel: stop.priceLevel,
+    // Rebuilt field by field rather than passed through: `transfer` is an
+    // embedded subdocument, and spreading whatever `.lean()` handed back
+    // would risk carrying a non-serializable extra across the client
+    // boundary if the schema ever grows one.
+    transfer: stop.transfer
+      ? {
+          mode: stop.transfer.mode,
+          duration: stop.transfer.duration,
+          distance: stop.transfer.distance,
+        }
+      : undefined,
+    highlight: stop.highlight,
+    photoUrl: stop.photoUrl,
+  };
+}
+
+function toEditableDay(day: LeanGuideDay): EditableGuideDay {
+  return {
+    title: day.title,
+    summary: day.summary,
+    stops: day.stops.map(toEditableStop),
+  };
+}
+
+/**
+ * The guide `slug`, but only if `userId` is its author. Returns `null` for an
+ * unknown slug **and** for a guide owned by someone else — the caller cannot
+ * tell those apart, on purpose, so a 404 never leaks the existence of another
+ * author's draft.
+ *
+ * Ownership is part of the query filter rather than a post-fetch comparison:
+ * one indexed round trip, and there is no window in which a non-owner's guide
+ * exists in memory to be accidentally returned.
+ *
+ * Unlike `getPublishedGuideDetail` this deliberately does **not** filter on
+ * `status: "published"` — an author edits their drafts too, and a draft that
+ * couldn't be reloaded would be unfinishable.
+ */
+export async function getGuideForAuthor(
+  slug: string,
+  userId: string,
+): Promise<EditableGuide | null> {
+  // A malformed id would make mongoose throw a `CastError` on the filter
+  // rather than simply match nothing. Callers pass `session.user.id`, which is
+  // always well-formed today, but a thrown 500 is the wrong answer to "is this
+  // yours?" regardless — the honest answer for an id that can't own anything
+  // is the same `null` a non-owner gets.
+  if (!Types.ObjectId.isValid(userId)) return null;
+
+  await connectDB();
+
+  const doc = await Guide.findOne({
+    slug,
+    author: new Types.ObjectId(userId),
+  }).lean<LeanEditableGuide | null>();
+
+  if (!doc) return null;
+
+  return {
+    id: doc._id.toString(),
+    slug: doc.slug,
+    status: doc.status,
+    title: doc.title,
+    // `?? ""` across the `requiredWhenPublished` fields: absent on a draft, and
+    // the editor's controls are all controlled inputs that need a string, not
+    // `undefined` (which would flip them to uncontrolled mid-render).
+    heroTitle: doc.heroTitle ?? "",
+    heroAccent: doc.heroAccent ?? "",
+    blurb: doc.blurb ?? "",
+    intro: doc.intro ?? "",
+    tags: doc.tags,
+    generalTips: doc.generalTips,
+    currency: doc.currency,
+    bestTime: doc.bestTime ?? "",
+    // `""` and "absent" both mean "no cover" — see the clearing branch in
+    // `PATCH /api/guides/[guideId]`, which unsets the path on a draft save
+    // with no cover. Normalised to `null` so the caller has one case to check.
+    coverImageUrl: doc.coverImageUrl ? doc.coverImageUrl : null,
+    days: doc.days.map(toEditableDay),
   };
 }
