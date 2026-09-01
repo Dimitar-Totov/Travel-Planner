@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import type { DestinationGuide } from "@/lib/destinationGuides";
 import { formatLikes } from "@/lib/destinationGuides";
 import {
@@ -11,21 +12,43 @@ import {
 } from "@/components/icons";
 
 /**
- * The author strip under the hero: who wrote the guide, when, and the social
+ * The author strip under the hero: who wrote the guide, when, and the action
  * row.
  *
- * Every control here is **local state only** — there is no accounts or social
+ * The social controls are **local state only** — there is no accounts or social
  * API behind `/destinations` yet, so Follow and the like count live in this
  * component and reset on navigation. They are built now because the shape of
  * the interaction (optimistic toggle, count moves with it) is what the eventual
  * endpoint will have to serve, and because a row of dead pills reads as broken.
+ *
+ * The row has two shapes, decided by `ownerActions`:
+ *
+ * - **Reader** (no slot) — Follow · like · comment · share, as it has always
+ *   been.
+ * - **Author** (slot present) — the owner's own controls in place of the first
+ *   three, then share. Follow, like and comment are all self-directed nonsense
+ *   on a guide you wrote: you can't follow yourself, a like on your own work is
+ *   noise in your own count, and the comment button is a disabled stub. Share
+ *   survives in both, in the same trailing position, because copying a link to
+ *   a guide you just published is the single most useful thing in the row.
+ *
+ * `following`/`liked` are still declared unconditionally in the author case —
+ * hooks can't be branched — but nothing renders them there.
  */
 export default function GuideAuthorBar({
   guide,
   publishedAt,
+  ownerActions,
 }: {
   guide: DestinationGuide;
   publishedAt: string;
+  /**
+   * `GuideOwnerActions`, when the signed-in reader wrote this guide. A slot
+   * rather than an `isOwner` flag: ownership is decided on the server (see
+   * `details/page.tsx`), and this client component has no business learning
+   * who is reading — it only needs to know which shape of row to lay out.
+   */
+  ownerActions?: ReactNode;
 }) {
   const [following, setFollowing] = useState(false);
   const [liked, setLiked] = useState(false);
@@ -68,51 +91,59 @@ export default function GuideAuthorBar({
         </div>
       </div>
 
+      {/* One row, two casts. `gap-2` and `flex-none` are shared by both so the
+          author's controls sit on exactly the same baseline and rhythm as the
+          reader's, and the outer `flex-wrap` still drops the whole group onto
+          its own line under the identity block at phone widths. */}
       <div className="flex flex-none items-center gap-2">
-        <button
-          type="button"
-          aria-pressed={following}
-          onClick={() => setFollowing((f) => !f)}
-          className={`tp-btn rounded-full border px-5 py-2.5 text-[14px] font-bold outline-offset-2 outline-brand-500 focus-visible:outline-2 ${
-            following
-              ? "border-[#d5e2ea] bg-white text-brand-700"
-              : "border-transparent bg-[linear-gradient(150deg,#2f7fb0,#134a6f)] text-white shadow-[0_12px_24px_-14px_rgba(19,74,111,.9)]"
-          }`}
-        >
-          {following ? "Following" : "Follow"}
-        </button>
+        {ownerActions ?? (
+          <>
+            <button
+              type="button"
+              aria-pressed={following}
+              onClick={() => setFollowing((f) => !f)}
+              className={`tp-btn rounded-full border px-5 py-2.5 text-[14px] font-bold outline-offset-2 outline-brand-500 focus-visible:outline-2 ${
+                following
+                  ? "border-[#d5e2ea] bg-white text-brand-700"
+                  : "border-transparent bg-[linear-gradient(150deg,#2f7fb0,#134a6f)] text-white shadow-[0_12px_24px_-14px_rgba(19,74,111,.9)]"
+              }`}
+            >
+              {following ? "Following" : "Follow"}
+            </button>
 
-        <button
-          type="button"
-          aria-pressed={liked}
-          aria-label={`${formatLikes(likes)} likes`}
-          onClick={() => setLiked((l) => !l)}
-          className={`tp-chip inline-flex items-center gap-1.5 rounded-full px-3 py-2.5 text-[13px] font-bold outline-offset-2 outline-brand-500 focus-visible:outline-2 ${
-            liked
-              ? "bg-gold-warm/15 text-gold-deep"
-              : "bg-surface-2 text-[#68767f] hover:bg-[#eaf3f9] hover:text-brand-700"
-          }`}
-        >
-          <HeartIcon
-            size={15}
-            fill={liked ? "currentColor" : "none"}
-            aria-hidden="true"
-          />
-          <span aria-hidden="true">{formatLikes(likes)}</span>
-        </button>
+            <button
+              type="button"
+              aria-pressed={liked}
+              aria-label={`${formatLikes(likes)} likes`}
+              onClick={() => setLiked((l) => !l)}
+              className={`tp-chip inline-flex items-center gap-1.5 rounded-full px-3 py-2.5 text-[13px] font-bold outline-offset-2 outline-brand-500 focus-visible:outline-2 ${
+                liked
+                  ? "bg-gold-warm/15 text-gold-deep"
+                  : "bg-surface-2 text-[#68767f] hover:bg-[#eaf3f9] hover:text-brand-700"
+              }`}
+            >
+              <HeartIcon
+                size={15}
+                fill={liked ? "currentColor" : "none"}
+                aria-hidden="true"
+              />
+              <span aria-hidden="true">{formatLikes(likes)}</span>
+            </button>
 
-        {/* Genuinely inert until there is a comments API — marked `disabled`
-            rather than dressed up as a live control that silently does
-            nothing. */}
-        <button
-          type="button"
-          disabled
-          title="Comments arrive with accounts"
-          className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-full bg-surface-2 px-3 py-2.5 text-[13px] font-bold text-[#a3b0b8]"
-        >
-          <CommentIcon size={15} />
-          <span className="sr-only">Comments (not available yet)</span>
-        </button>
+            {/* Genuinely inert until there is a comments API — marked
+                `disabled` rather than dressed up as a live control that
+                silently does nothing. */}
+            <button
+              type="button"
+              disabled
+              title="Comments arrive with accounts"
+              className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-full bg-surface-2 px-3 py-2.5 text-[13px] font-bold text-[#a3b0b8]"
+            >
+              <CommentIcon size={15} />
+              <span className="sr-only">Comments (not available yet)</span>
+            </button>
+          </>
+        )}
 
         <button
           type="button"

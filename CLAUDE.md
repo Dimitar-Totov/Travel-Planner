@@ -55,7 +55,8 @@ AI planning layer and rendered through the **same detail template as a community
 
 Plus the auth routes — `/sign-in`, `/sign-up`, `/api/auth/[...nextauth]`, `POST /api/users`
 — described under "Auth" below, the destinations routes — `/destinations`,
-`/destinations/guide/[guideId]/details`, `POST /api/guides`, `POST /api/uploads` —
+`/destinations/guide/[guideId]/details`, `/destinations/guide/[guideId]/edit`,
+`POST /api/guides`, `PATCH`/`DELETE /api/guides/[guideId]`, `POST /api/uploads` —
 described under "Destinations" below and "Storage" below, and `/create-guide` — described
 under "Create Guide" below.
 
@@ -202,6 +203,8 @@ the same reason `lib/validation/auth.ts` does: client components may import it.
   infrastructure, and the session survives on its cached role.
 - Nothing reads the role for an authorization decision yet — gating `/create-guide` and
   `POST /api/guides` on `"guide"`/`"admin"`, and an admin panel to grant it, are still TODO.
+  The one authorization check that _does_ exist is **authorship**, not role: only a guide's
+  own author may edit or delete it (see "Author permissions"), and an admin has no override.
   Note `README.md` calls this role `"tourist-guide"`; the implemented value is `"guide"`.
 
 #### Refresh tokens (`src/services/refreshTokens.ts`, `src/models/RefreshToken.ts`)
@@ -361,10 +364,13 @@ hitting `/api/plan`), but nothing here is hardcoded/in-memory anymore.
   still-called `heroImageFor`/`countStops` helpers. `getGuideDetail`/`getGuideItinerary` (the
   hardcoded-array lookups) are dead as render-path code — nothing outside the seed script
   calls them anymore — but kept rather than deleted unilaterally.
-- `src/services/guides.ts` — the **only** module that talks to the `guides` collection.
+- `src/services/guides.ts` — the **only** module that _reads_ the `guides` collection for a
+  page (the two write routes under `src/app/api/guides/` reach the model directly).
   `listPublishedGuides()` → the feed's `DestinationGuide[]`; `getPublishedGuideDetail(slug)`
-  → `{ guide, itinerary, stopImages } | null` for one published guide (a draft or an unknown
-  slug is invisible to both — `.findOne({ slug, status: "published" })`). Everything returned
+  → `{ guide, itinerary, stopImages, authorId } | null` for one published guide (a draft or an
+  unknown slug is invisible to both — `.findOne({ slug, status: "published" })`);
+  `getGuideForAuthor(slug, userId)` → an `EditableGuide` at any status, owner-only, described
+  under "Author permissions" below. Everything returned
   is a plain, JSON-serializable object — string/number/array fields only, no `ObjectId`s, no
   `Date`s — because both cross into client components as props. Mapping decisions worth
   knowing:
@@ -445,8 +451,8 @@ hitting `/api/plan`), but nothing here is hardcoded/in-memory anymore.
   `DestinationGuide` + `GuideItinerary` into one document (days/stops embedded, author
   referenced by `ObjectId`, `dayCount`/`stopCount` maintained by a `pre("save")` hook so the
   "Weekends"/"recent"/"Loved" tab filters stay indexable). Written to by `POST /api/guides`
-  (below) and read by `services/guides.ts` above — the only two things that touch the
-  collection.
+  (below) and `PATCH`/`DELETE /api/guides/[guideId]` (see "Author permissions"), read by
+  `services/guides.ts` above — nothing else touches the collection.
   - Content fields are `required` **only when `status === "published"`**
     (`requiredWhenPublished`), never unconditionally. A draft starts empty — the editor seeds
     `heroTitle`/`blurb`/`intro`/`bestTime` as `""`, and Mongoose counts `""` as missing — so
@@ -521,9 +527,9 @@ anonymous author can write a whole guide and only meet the API's 401 at the end,
   list the new guide is missing from. Navigation is skipped when the 201 body yields no
   slug — the guide is saved either way, but there is no URL to send anyone to, and
   `PublishStatus` says exactly that rather than inventing one.
-  - Navigating away **discards the in-memory draft**, which is acceptable only because the
-    guide is persisted by that point. It does mean an author who spots a typo has no way
-    back in: there is no edit-an-existing-guide flow and no `PATCH /api/guides/:id`.
+  - Navigating away **discards the in-memory draft**, which is acceptable because the
+    guide is persisted by that point and an author who spots a typo can reopen it through
+    `/destinations/guide/[guideId]/edit` — see "Author permissions" below.
 - `lib/hooks/usePublishGuide.ts` — the whole flow, kept out of `CreateGuidePageShell` for
   the same reason `useCreateGuideForm` is. Order is load-bearing: pre-flight (a
   `publishGuideSchema.omit({ coverImageUrl: true })` parse — the cover is still a `data:` URL
@@ -581,6 +587,111 @@ anonymous author can write a whole guide and only meet the API's 401 at the end,
   placed so far. **Only ever mounted while Edit mode is active and a stop is targeted** —
   see the "Map" section below for why that matters.
 
+### Author permissions (`src/app/api/guides/[guideId]/`, `/destinations/guide/[guideId]/edit`)
+
+A guide's author — and only its author — can edit and delete it. `Guide.author` has always
+been a real `ObjectId` reference stamped from the session by `POST /api/guides`; this is the
+layer that finally reads it for an authorization decision. Note this is **authorship**, not
+the `"guide"`/`"admin"` role: `session.user.role` still gates nothing anywhere (see "Roles"),
+and an admin has no override here.
+
+- `PATCH` / `DELETE /api/guides/[guideId]` (`src/app/api/guides/[guideId]/route.ts`) — the
+  write side. `[guideId]` is the **slug**, matching the detail route's segment, so the client
+  never has to learn a second identifier.
+  - **Ownership failures answer `404`, never `403`, and "no such guide" is deliberately
+    indistinguishable from "not yours."** Slugs are derived from titles and therefore
+    guessable, and drafts are otherwise invisible (`getPublishedGuideDetail` filters on
+    `status: "published"`), so a `403` would be a working oracle for enumerating other
+    authors' unpublished work by title.
+  - `PATCH` defaults `status` to **the guide's current status**, not to `"draft"` the way
+    `POST` does — an edit that omits `status` must not silently unpublish a live guide. It
+    picks `publishGuideSchema` vs `draftGuideSchema` from the result exactly as `POST` does,
+    and stamps `publishedAt` only on a real `draft → published` transition (re-stamping it on
+    every save would make an edit read as a fresh publication everywhere `formatPublishedAt`
+    renders it).
+  - **The write goes through `doc.save()`, and that is load-bearing.** `Guide.ts`'s
+    `pre("save")` hook is what recomputes `dayCount`/`stopCount` from `days`, and
+    `findOneAndUpdate`/`updateOne` skip document middleware entirely — an update-path write
+    of `days` leaves both counts stale, which silently breaks `/destinations`' "Weekends"
+    tab (it filters the stored `dayCount` precisely so the filter can use an index).
+  - **The slug is never re-derived from a changed title.** A published guide's links are
+    already shared and indexed; re-slugifying would 404 every one of them. A retitle changes
+    the displayed title only, and the editor says so rather than implying the page moves.
+  - `findInvalidPhotoUrl` is shared with `POST` via `src/lib/guides/photoUrls.ts` — an edit
+    can introduce a brand-new photo URL and needs the same R2 host check. **Consequence worth
+    knowing: a seeded guide's cover is an Unsplash URL, so a `PATCH` carrying it back
+    unchanged is rejected with a 400.** Not reachable today — every seeded guide belongs to
+    the `travel-planner-seed` placeholder account, which has an unusable random password and
+    nobody can sign in as — but it's the trap to remember if the seed script is ever
+    re-pointed at a real user.
+  - A Mongoose `ValidationError` is remapped into the same dotted-path `fields` map
+    `nestedFieldErrorsOf` produces, so the client renders one error shape regardless of which
+    layer rejected the write.
+  - **KNOWN GAP: `DELETE` orphans the guide's photos in R2.** Guide documents store the
+    resolved public URL, not the object key (see "Storage"), so there's nothing to hand
+    `DeleteObjectCommand`; reversing the URL back into a key would bake the current
+    `R2_PUBLIC_BASE_URL` layout into a destructive operation, and that var is explicitly the
+    swap-in seam for a custom domain. The clean fix is storing the key alongside the URL — a
+    schema change, deliberately not improvised.
+- `services/guides.ts` grew the read side: `PublishedGuideDetail.authorId` (straight off the
+  already-populated author, no extra query) and `getGuideForAuthor(slug, userId)`, which
+  returns an `EditableGuide` — every field the editor collects, at **any** status, since an
+  author edits their drafts too. **Ownership is part of the query filter**
+  (`{ slug, author }`), not a post-fetch comparison, so a non-owner's guide never exists in
+  memory to be leaked by accident and the `null` return is identical for both failure modes.
+- `/destinations/guide/[guideId]/details` reads the session alongside the guide (`Promise.all`
+  — neither depends on the other) and passes `GuideOwnerActions` down as an `ownerActions`
+  slot on `GuideDetailView`, which forwards it into `GuideAuthorBar` inside
+  `ItineraryDetailView`'s existing `byline`. **No prop was added to `ItineraryDetailView`** —
+  that template is shared with `/plan` and the create-guide preview and stays
+  provenance-free, with no concept of a guide having an owner. Hiding the buttons is a
+  rendering decision, not the permission boundary.
+- **The author's byline row is the reader's row with the first three controls swapped out**,
+  not an extra surface. `GuideAuthorBar` renders `ownerActions ?? <Follow · like · comment>`
+  and keeps Share in both — Follow/like/comment are self-directed nonsense on a guide you
+  wrote (and the comment button is a disabled stub), while copying a link to your own guide
+  is the most useful thing in the row. `GuideOwnerActions` therefore renders **no wrapper of
+  its own**: its two controls are direct children of that `flex … gap-2` row, sharing its
+  gap and baseline. Edit inherits Follow's slot and its exact filled-gradient recipe (it's
+  the author's primary action, and the rhythm survives); Delete rests as a `surface-2` chip
+  matching like/share and reaches for `danger` only on hover and focus, because a
+  permanently red button under your own guide reads as a warning _about the guide_. The
+  labels are one word each — "Edit guide" overflowed the `flex-none` group at 320px — with
+  the guide named in each `aria-label`, visible word first so speech input still matches
+  (WCAG 2.5.3). A non-owner's render is byte-for-byte unchanged.
+- `/destinations/guide/[guideId]/edit` (`app/destinations/guide/[guideId]/edit/page.tsx`) —
+  no session redirects to `/sign-in` (via `withCallbackUrl`, the same helper the auth pages
+  use); the `getGuideForAuthor` call **is** the authorization check, and its `null` is a
+  `notFound()`. It renders the very same `CreateGuidePageShell` with an `initialGuide` prop —
+  one editor, one preview, one save pipeline, not a parallel "edit" copy of any of them.
+- `useCreateGuideForm(initial?)` seeds from a saved guide. Seeded row ids are **positional and
+  deterministic** (`day-0`, `day-0-stop-2`), never `crypto.randomUUID()` — they reach the DOM
+  as `id` attributes and the seed runs during SSR _and_ hydration. Seeded stops are
+  `placed: true` (they carry coordinates their author really chose), and every seeded value is
+  a `useState` _initialiser_, so a later `initial` change can't clobber what's been typed since.
+- `usePublishGuide(target?)` is one pipeline with a mode, not a fork: pre-flight, upload
+  batching, `buildGuideBody` and the abort/cache handling are shared verbatim; only the method,
+  the URL, the success destination and the wording branch.
+  - `DraftPhoto.uploadedUrl` marks a photo that is **already in the bucket**, so it goes
+    straight into the `key → publicUrl` map instead of becoming an upload task. Without it
+    every save of a 20-stop guide would cost the same twenty multi-megabyte PUTs its first
+    publish did, and orphan the previous twenty objects each time.
+  - `resolveTitle` keeps the **stored** `title` while the headline is untouched. The editor
+    collects one headline and never shows `title`, so collapsing the two unconditionally would
+    silently rewrite the feed card of an author who only came to fix a typo — a guide authored
+    outside this editor can legitimately hold a `title` that differs from its `heroTitle`
+    ("Paris 5-Day Itinerary" vs. "Paris 5-Day Tourist Itinerary"). The title follows the
+    headline only once the author actually changes it.
+  - Editing a guide that is still a draft pre-flights against `draftGuideSchema`, not
+    `publishGuideSchema` — holding an unfinished draft to publish-grade completeness before it
+    may be _saved_ is how a draft becomes unfinishable. Unplaced stops still block a draft
+    save, though: an unplaced stop is carrying a neighbour's coordinates, and once written they
+    come back as a real chosen position with the "never placed" signal gone.
+- Still missing: no "my guides" list anywhere (an author reaches their guide through
+  `/destinations` or a saved URL), no save-as-draft control in the editor (so a draft is only
+  reachable via the API or the seed script), and no `GET /api/guides/[guideId]` — the edit page
+  calls `services/guides.ts` directly, the same way every other page does.
+
 ### Component layout (`src/components/`)
 
 Six groups, each consumed by a specific layer above:
@@ -615,8 +726,10 @@ Six groups, each consumed by a specific layer above:
   `GuideCard`/`ScrollToTopButton` for the `/destinations` feed, plus a `detail/` subfolder
   (`GuideHero`, `GuideAuthorBar`, `GuideStatsStrip`, `CollapsibleSection`, `DaySection`,
   `StopRow`, `StopThumb`, `StopPin`, `TransferConnector`, `StopDetailCard`, `GuideMap`,
-  `MapOverlaySheet`, `GuideDetailView`) for the guide detail split view. See "Destinations"
-  above.
+  `MapOverlaySheet`, `GuideDetailView`) for the guide detail split view, plus
+  `GuideOwnerActions`/`DeleteGuideDialog` — the author-only Edit/Delete pair that replaces
+  `GuideAuthorBar`'s Follow/like/comment controls, and its confirmation dialog. See
+  "Destinations" and "Author permissions" below.
 - `create-guide/` — `CreateGuidePageShell`, `CreateGuideForm`, `ItineraryEditor`,
   `StopEditor`, `ListInput`, `FormControls`, `LocationPickerModal`, `CreateGuidePreview` for
   the `/create-guide` editor + preview. See "Create Guide" above.

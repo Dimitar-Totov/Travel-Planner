@@ -20,6 +20,25 @@ interface GuideDetailViewProps {
    * gradient placeholder for a missing key.
    */
   stopImages: Record<string, StopImagePair>;
+  /**
+   * `GuideOwnerActions`, when the signed-in reader is this guide's author.
+   *
+   * A slot on *this* component rather than a prop on `ItineraryDetailView`:
+   * that template is shared with `/plan` and `/create-guide`'s preview and is
+   * deliberately provenance-free — it renders a hero, a byline, some stats and
+   * a `GuideDay[]`, and has no concept of a guide having an owner. The byline
+   * is already the seam for exactly this kind of route-specific chrome, so
+   * ownership is resolved here and forwarded from the byline downwards.
+   *
+   * Passed straight through to `GuideAuthorBar`, which swaps it in for Follow,
+   * like and comment — see that component for why those three go away rather
+   * than sitting alongside these.
+   *
+   * Omitted for everyone else, which is a rendering decision and not a
+   * permission boundary — `PATCH`/`DELETE /api/guides/[guideId]` each re-check
+   * authorship against the database.
+   */
+  ownerActions?: ReactNode;
   /** `SiteFooter`, passed as a slot so it stays a server component. */
   footer: ReactNode;
 }
@@ -32,7 +51,9 @@ interface GuideDetailViewProps {
  * adapter that spreads a `DestinationGuide` + `GuideItinerary` onto it and
  * supplies the author bar as the byline. It stays a server component — the
  * author bar is a client component referenced from here, exactly as the footer
- * slot is, so nothing extra reaches the browser.
+ * slot is, so nothing extra reaches the browser. The owner controls arrive the
+ * same way, already built by the page, so ownership is decided once on the
+ * server and this file never learns who is reading.
  *
  * Stop photographs are resolved from storage, not Unsplash. Unlike `/plan`
  * (`resolveStopImages`, `src/lib/unsplash.ts`), which hits Unsplash's live
@@ -51,6 +72,7 @@ export default function GuideDetailView({
   heroImage,
   stopCount,
   stopImages,
+  ownerActions,
   footer,
 }: GuideDetailViewProps) {
   return (
@@ -64,7 +86,17 @@ export default function GuideDetailView({
         verified: guide.verified,
       }}
       byline={
-        <GuideAuthorBar guide={guide} publishedAt={itinerary.publishedAt} />
+        // The owner controls go *into* the author bar's own action row, not
+        // beside or beneath it: on your own guide, Edit and Delete are the row,
+        // and the bar swaps them in for Follow/like/comment rather than
+        // stacking a second surface under a strip of controls that don't apply
+        // to you. `undefined` for everyone else, which is the branch that
+        // leaves the reader's render byte-for-byte what it was.
+        <GuideAuthorBar
+          guide={guide}
+          publishedAt={itinerary.publishedAt}
+          ownerActions={ownerActions}
+        />
       }
       intro={itinerary.intro}
       stats={{

@@ -6,11 +6,12 @@ import { CheckCircleIcon, CloseIcon, SpinnerIcon } from "@/components/icons";
 import type {
   PublishFailureKind,
   PublishGuideState,
+  PublishMode,
 } from "@/lib/hooks/usePublishGuide";
 
 /**
- * Everything the Publish button has to say back: progress while it runs, the
- * failure panel, and the (heavily qualified) success panel.
+ * Everything the Publish / Save changes button has to say back: progress while
+ * it runs, the failure panel, and the (heavily qualified) success panel.
  *
  * Rendered inside `CreateGuidePageShell`'s sticky header block rather than at
  * the top of the page, because the button that produces it is in that sticky
@@ -18,14 +19,33 @@ import type {
  * flow would appear off-screen. Focus moves to it once it settles, the standard
  * error-summary pattern, so a keyboard or screen-reader user lands on the
  * explanation instead of hunting for it.
+ *
+ * Every string here is keyed on `mode`. "Publishing failed" is the wrong
+ * sentence to show someone whose guide has been live for a month and who only
+ * fixed a typo in it, and "That headline is already taken" is a thing that
+ * cannot happen to them at all — an edit never re-derives the slug.
  */
 
-const FAILURE_TITLES: Record<PublishFailureKind, string> = {
-  validation: "This guide isn't ready to publish",
-  auth: "You need to be signed in",
-  conflict: "That headline is already taken",
-  network: "We couldn't reach the server",
-  server: "Publishing failed",
+const FAILURE_TITLES: Record<
+  PublishMode,
+  Record<PublishFailureKind, string>
+> = {
+  create: {
+    validation: "This guide isn't ready to publish",
+    auth: "You need to be signed in",
+    conflict: "That headline is already taken",
+    missing: "That guide is gone",
+    network: "We couldn't reach the server",
+    server: "Publishing failed",
+  },
+  edit: {
+    validation: "These changes aren't ready to save",
+    auth: "You need to be signed in",
+    conflict: "That headline is already taken",
+    missing: "This guide is no longer here",
+    network: "We couldn't reach the server",
+    server: "Saving failed",
+  },
 };
 
 /**
@@ -75,12 +95,13 @@ function describeFieldPath(path: string): string {
 
 interface PublishStatusProps extends Pick<
   PublishGuideState,
-  "phase" | "uploaded" | "photoTotal" | "failure" | "published"
+  "mode" | "phase" | "uploaded" | "photoTotal" | "failure" | "published"
 > {
   onDismiss: () => void;
 }
 
 export default function PublishStatus({
+  mode,
   phase,
   uploaded,
   photoTotal,
@@ -90,6 +111,7 @@ export default function PublishStatus({
 }: PublishStatusProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const settled = failure ?? published;
+  const editing = mode === "edit";
 
   useEffect(() => {
     if (settled) panelRef.current?.focus();
@@ -104,7 +126,9 @@ export default function PublishStatus({
         <SpinnerIcon size={15} />
         {phase === "uploading"
           ? `Uploading photos… ${uploaded}/${photoTotal}`
-          : "Saving your guide…"}
+          : editing
+            ? "Saving your changes…"
+            : "Saving your guide…"}
       </p>
     );
   }
@@ -116,10 +140,12 @@ export default function PublishStatus({
         role="alert"
         tone="danger"
         onDismiss={onDismiss}
-        dismissLabel="Dismiss publishing error"
+        dismissLabel={
+          editing ? "Dismiss save error" : "Dismiss publishing error"
+        }
       >
         <p className="text-[13.5px] font-bold text-danger lg:text-[15.5px]">
-          {FAILURE_TITLES[failure.kind]}
+          {FAILURE_TITLES[mode][failure.kind]}
         </p>
         <p className="mt-1 text-[13px] leading-[1.55] text-ink-soft lg:text-[15px]">
           {failure.message}
@@ -137,22 +163,30 @@ export default function PublishStatus({
         role="status"
         tone="gold"
         onDismiss={onDismiss}
-        dismissLabel="Dismiss publishing notice"
+        dismissLabel={
+          editing ? "Dismiss save notice" : "Dismiss publishing notice"
+        }
       >
         {/* With a slug, `usePublishGuide` is already navigating to the guide
             and this panel is a brief hand-off — the link is there in case the
             navigation is slow or gets interrupted. Without one, the 201 body
             didn't parse: the guide is genuinely saved, but there is no URL to
-            offer, so this says so instead of guessing at one. */}
+            offer, so this says so instead of guessing at one. That second
+            branch is create-only in practice: an edit's slug is immutable, so
+            `usePublishGuide` always has `target.slug` to fall back on. */}
         <p className="flex items-center gap-2 text-[13.5px] font-bold text-gold-deep lg:text-[15.5px]">
           <CheckCircleIcon size={16} />
           {published.slug
-            ? "Published — opening your guide"
+            ? editing
+              ? "Changes saved — opening your guide"
+              : "Published — opening your guide"
             : "Published, but we couldn’t read back its address"}
         </p>
         {published.slug ? (
           <p className="mt-1 text-[13px] leading-[1.55] text-gold-deep lg:text-[15px]">
-            Your guide is live at{" "}
+            {/* "saved at" rather than "live at" for an edit: the same button
+                saves a guide that is still a draft, and that one isn't live. */}
+            {editing ? "Your guide is saved at " : "Your guide is live at "}
             <Link
               href={`/destinations/guide/${published.slug}/details`}
               className="font-mono font-bold underline underline-offset-2"
