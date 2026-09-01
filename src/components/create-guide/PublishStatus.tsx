@@ -188,7 +188,7 @@ export default function PublishStatus({
                 saves a guide that is still a draft, and that one isn't live. */}
             {editing ? "Your guide is saved at " : "Your guide is live at "}
             <Link
-              href={`/destinations/guide/${published.slug}/details`}
+              href={`/guides/guide/${published.slug}/details`}
               className="font-mono font-bold underline underline-offset-2"
             >
               {published.slug}
@@ -202,10 +202,10 @@ export default function PublishStatus({
             include its address, so we can&rsquo;t link you to it. Look for it
             on the{" "}
             <Link
-              href="/destinations"
+              href="/guides"
               className="font-bold underline underline-offset-2"
             >
-              Destinations
+              Guides
             </Link>{" "}
             feed — and don&rsquo;t publish again, or you&rsquo;ll create a
             second copy. Your draft is still here.

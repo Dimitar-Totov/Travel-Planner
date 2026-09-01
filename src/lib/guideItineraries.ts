@@ -1,6 +1,6 @@
 /**
  * Seed source data for the `guides` collection — **no longer what
- * `/destinations/guide/[guideId]/details` renders.** The detail route now
+ * `/guides/guide/[guideId]/details` renders.** The detail route now
  * reads a published `Guide` document from MongoDB via
  * `src/services/guides.ts` (`getPublishedGuideDetail`); this module is only
  * `scripts/seed-guides.ts`'s input for the itinerary half of each seeded

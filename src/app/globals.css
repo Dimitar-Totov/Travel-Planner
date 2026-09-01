@@ -431,7 +431,7 @@ body {
   animation: tp-ticker 80s linear infinite;
 }
 
-/* ---- Guide detail (/destinations/guide/[guideId]/details) --------------- */
+/* ---- Guide detail (/guides/guide/[guideId]/details) --------------- */
 
 /* On desktop the reading column is the only thing on the page that scrolls, and
    it ends flush against the map divider — the platform's default 17px bar reads

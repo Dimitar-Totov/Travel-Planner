@@ -3,7 +3,7 @@ import ItineraryDetailSkeleton, {
 } from "@/components/shared/ItineraryDetailSkeleton";
 
 /**
- * Instant-loading UI for /destinations/guide/[guideId]/details.
+ * Instant-loading UI for /guides/guide/[guideId]/details.
  *
  * The page awaits `getPublishedGuideDetail(slug)` — a MongoDB read plus a
  * render, usually a few hundred milliseconds, not `/plan`'s model call — but
@@ -14,7 +14,7 @@ import ItineraryDetailSkeleton, {
  * routes resolve to the same `ItineraryDetailView`.
  *
  * The copy is deliberately about *reading* a guide, not publishing one: this
- * is what anyone opening a guide from `/destinations` sees too.
+ * is what anyone opening a guide from `/guides` sees too.
  */
 
 /** Rotating status lines — one visible per 1.6s slot of the 8s `lp-status`

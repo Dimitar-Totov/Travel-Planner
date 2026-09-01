@@ -16,7 +16,7 @@ import Guide, { type IGuide } from "@/models/Guide";
  * (`DELETE`) one existing guide.
  *
  * `[guideId]` is the guide's **slug**, not its `_id` — the same segment value
- * `/destinations/guide/[guideId]/details` uses, so the client already has it
+ * `/guides/guide/[guideId]/details` uses, so the client already has it
  * from the URL it's sitting on and never has to learn a second identifier.
  * `Guide.slug` is uniquely indexed, so it addresses exactly one document.
  *
@@ -242,7 +242,7 @@ export async function PATCH(
     // hook is what recomputes `dayCount`/`stopCount` from `days`, and
     // `findOneAndUpdate`/`updateOne` skip document middleware entirely — an
     // update-path write of `days` would leave both counts stale, which
-    // silently breaks `/destinations`' "Weekends" tab (it filters on the
+    // silently breaks `/guides`' "Weekends" tab (it filters on the
     // stored `dayCount`, precisely so the filter can use an index instead of
     // `$size`). `Guide.ts` says this in its own hook comment; it is repeated
     // here because this is the route that would break it.

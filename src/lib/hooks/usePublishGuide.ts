@@ -626,10 +626,10 @@ export function usePublishGuide(target?: PublishTarget): PublishGuideState {
             // The feed and the guide page are both server components rendered
             // per request, and this session's router cache still holds the
             // version from before this write. Without the refresh, going back
-            // to `/destinations` can show a list the new guide is missing
+            // to `/guides` can show a list the new guide is missing
             // from — or, after an edit, the guide exactly as it was.
             router.refresh();
-            router.push(`/destinations/guide/${slug}/details`);
+            router.push(`/guides/guide/${slug}/details`);
           }
           // No slug means the 201 body didn't parse — the guide *is* saved, but
           // there's no URL to send anyone to, so `PublishStatus` stays put and

@@ -80,7 +80,7 @@ export default function CreateGuideForm({
             value={form.blurb}
             onChange={(event) => form.setBlurb(event.target.value)}
             placeholder="One or two lines for the guide's card in the feed."
-            hint="The short summary the /destinations feed shows."
+            hint="The short summary the /guides feed shows."
           />
 
           <TextAreaField

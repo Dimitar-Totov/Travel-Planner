@@ -66,7 +66,7 @@ export async function generateMetadata(
  * side with its map.
  *
  * It renders the same template as a community guide —
- * `/destinations/guide/[guideId]/details` — because a plan and a guide are the
+ * `/guides/guide/[guideId]/details` — because a plan and a guide are the
  * same document with different provenance. `PlanDetailView` is the adapter that
  * says so, and `ItineraryDetailView` underneath it is the single `"use client"`
  * boundary.

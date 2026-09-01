@@ -86,7 +86,7 @@ export interface ItineraryDetailViewProps {
 /**
  * The two-pane itinerary template, below the nav.
  *
- * Rendered by both `/destinations/guide/[guideId]/details` (via
+ * Rendered by both `/guides/guide/[guideId]/details` (via
  * `GuideDetailView`) and `/plan` (via `PlanDetailView`). It knows nothing about
  * where its content came from — a hand-written community guide and an
  * AI-generated `TripPlan` both reduce to a hero, a byline, an intro, four

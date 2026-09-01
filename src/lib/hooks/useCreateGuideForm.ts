@@ -89,7 +89,7 @@ const SEED_STOP_ID = "stop-seed";
 
 /**
  * Ids for the rows of a saved guide loaded into the editor
- * (`/destinations/guide/[guideId]/edit`).
+ * (`/guides/guide/[guideId]/edit`).
  *
  * Positional and deterministic for exactly the reason the two literals above
  * are literals: these ids reach the DOM as `id` attributes (`edit-day-<id>`,
@@ -291,7 +291,7 @@ export interface CreateGuideFormState {
  *
  * `initial` is what makes the one editor serve two routes. Omitted
  * (`/create-guide`) it starts the blank draft it always has: one empty day with
- * one unplaced stop, open. Supplied (`/destinations/guide/[guideId]/edit`,
+ * one unplaced stop, open. Supplied (`/guides/guide/[guideId]/edit`,
  * which loads it through `getGuideForAuthor`) every field starts from the saved
  * guide instead — but only *once*: these are `useState` initialisers, so a later
  * change to `initial` deliberately does not clobber what the author has typed

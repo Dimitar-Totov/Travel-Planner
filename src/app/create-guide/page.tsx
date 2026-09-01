@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 };
 
 /**
- * The authoring counterpart to `/destinations/guide/[guideId]/details`.
+ * The authoring counterpart to `/guides/guide/[guideId]/details`.
  *
  * A server component with nothing to fetch: the whole draft lives in the
  * browser, so this file only supplies static metadata and hands the nav and the

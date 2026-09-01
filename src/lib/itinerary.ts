@@ -2,7 +2,7 @@
  * The day/stop shape shared by every itinerary in the app.
  *
  * Two things produce this shape and one template renders it:
- *   - `guideItineraries.ts` — hand-written community guides (`/destinations`),
+ *   - `guideItineraries.ts` — hand-written community guides (`/guides`),
  *   - `tripPlanner.ts` — an AI-generated plan for the sentence a traveller typed
  *     (`/plan`),
  * and both are read by `components/destinations/detail/*`.

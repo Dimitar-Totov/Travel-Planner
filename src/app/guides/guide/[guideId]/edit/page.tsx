@@ -8,7 +8,7 @@ import SiteFooter from "@/components/site/SiteFooter";
 import CreateGuidePageShell from "@/components/create-guide/CreateGuidePageShell";
 
 /**
- * `PageProps<"/destinations/guide/[guideId]/edit">` is a *generated* global
+ * `PageProps<"/guides/guide/[guideId]/edit">` is a *generated* global
  * (`types/routes.d.ts`, rewritten by `next dev`/`next build`) and doesn't exist
  * for this segment until the next generation pass, so the shape Next documents
  * for a dynamic segment is written out inline here instead.
@@ -63,7 +63,7 @@ export default async function EditGuidePage(props: EditGuideProps) {
     redirect(
       withCallbackUrl(
         "/sign-in",
-        `/destinations/guide/${encodeURIComponent(guideId)}/edit`,
+        `/guides/guide/${encodeURIComponent(guideId)}/edit`,
       ),
     );
   }

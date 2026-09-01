@@ -29,7 +29,7 @@ interface CreateGuidePageShellProps {
   footer: ReactNode;
   /**
    * The saved guide being edited, loaded by
-   * `/destinations/guide/[guideId]/edit` through `getGuideForAuthor` — the one
+   * `/guides/guide/[guideId]/edit` through `getGuideForAuthor` — the one
    * thing that tells this shell apart from the `/create-guide` one. Omitted
    * there, and everything below falls back to the create wording and a blank
    * draft.
@@ -46,7 +46,7 @@ interface CreateGuidePageShellProps {
  * switch, and the header bar both modes share.
  *
  * `/create-guide` renders it with no `initialGuide` and writes a new guide;
- * `/destinations/guide/[guideId]/edit` renders it with one and saves back over
+ * `/guides/guide/[guideId]/edit` renders it with one and saves back over
  * that guide. One shell rather than two, because everything structural here —
  * the mode switch, the scroll restoration, the sticky bar, the one-map-at-a-time
  * gate — is identical in both; what differs is a slug, a status and the words.

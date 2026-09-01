@@ -106,7 +106,7 @@ function DraftNotice({
 interface CreateGuidePreviewProps {
   form: CreateGuideFormState;
   /** Present when the draft being previewed is an edit of a guide that already
-   *  exists (`/destinations/guide/[guideId]/edit`) — the byline and the notice
+   *  exists (`/guides/guide/[guideId]/edit`) — the byline and the notice
    *  have genuinely different things to say in that case, and one of them is a
    *  warning that saving is immediately visible to readers. */
   editing?: EditingContext;

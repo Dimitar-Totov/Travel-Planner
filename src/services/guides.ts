@@ -25,9 +25,9 @@ export type { GuideStatus } from "@/models/Guide";
 
 /**
  * The read side of the `guides` collection — the Mongo counterpart of the
- * hardcoded `destinationGuides.ts` + `guideItineraries.ts` modules `/destinations`
+ * hardcoded `destinationGuides.ts` + `guideItineraries.ts` modules `/guides`
  * used to read from directly. This is the **only** module that talks to the
- * collection; everything downstream (`/destinations`, the guide detail route)
+ * collection; everything downstream (`/guides`, the guide detail route)
  * gets plain `DestinationGuide`/`GuideItinerary` view objects and never sees a
  * mongoose document, an `ObjectId`, or a `Date`.
  *
@@ -347,7 +347,7 @@ function toStopImages(doc: LeanPublishedGuide): Record<string, StopImagePair> {
 }
 
 /**
- * The `/destinations` feed. Sorted newest-first — the "recent" tab's default
+ * The `/guides` feed. Sorted newest-first — the "recent" tab's default
  * order, matching `Guide.ts`'s `{ status: 1, createdAt: -1 }` index. Every
  * other tab (loved/budget/weekends) still filters/sorts this same array
  * client-side in `useDestinationsExplorer`, unchanged.

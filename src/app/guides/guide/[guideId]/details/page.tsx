@@ -8,7 +8,7 @@ import SiteFooter from "@/components/site/SiteFooter";
 import GuideDetailView from "@/components/destinations/detail/GuideDetailView";
 import GuideOwnerActions from "@/components/destinations/detail/GuideOwnerActions";
 
-type GuideDetailProps = PageProps<"/destinations/guide/[guideId]/details">;
+type GuideDetailProps = PageProps<"/guides/guide/[guideId]/details">;
 
 // No `generateStaticParams` here anymore: guides live in MongoDB now, so
 // their slugs aren't knowable at build time the way the old hardcoded array's

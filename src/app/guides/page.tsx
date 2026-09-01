@@ -37,7 +37,7 @@ export default async function DestinationsPage() {
       <SiteFooter />
 
       {/* Mounted at the route boundary, not inside DestinationsExplorer, so it
-          can only ever exist on /destinations. It is position-fixed, so where
+          can only ever exist on /guides. It is position-fixed, so where
           it sits in the document is irrelevant to the layout. */}
       <ScrollToTopButton />
     </div>

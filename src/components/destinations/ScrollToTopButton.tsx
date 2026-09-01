@@ -8,7 +8,7 @@ import { useScrollToTop } from "@/lib/utils/useScrollToTop";
  * Floating "back to top" affordance for the guide feed, which pages in eight
  * cards at a time and gets long fast.
  *
- * Mounted only by `app/destinations/page.tsx` — the route boundary is what
+ * Mounted only by `app/guides/page.tsx` — the route boundary is what
  * makes it structurally impossible for this to appear anywhere else.
  *
  * `AnimatePresence` is what earns the dependency here: an exit animation needs

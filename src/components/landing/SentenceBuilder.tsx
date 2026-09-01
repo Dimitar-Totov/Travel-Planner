@@ -201,18 +201,9 @@ export default function SentenceBuilder({
     <div className="mx-auto grid w-full max-w-[1060px] grid-cols-1 overflow-hidden rounded-[22px] bg-white shadow-[0_34px_80px_rgba(8,40,63,.24)] lg:grid-cols-[1.15fr_0.85fr]">
       {/* Chip picker */}
       <div className="p-6 pb-7 sm:p-[30px] sm:pb-8 lg:border-r lg:border-[#eef2f5]">
-        <div className="flex items-center gap-2.5">
-          <span className="block h-1.5 w-1.5 rounded-full bg-[#b7c7d2]" />
-          <span className="font-mono text-[10.5px] font-medium tracking-[.14em] text-[#8fa4b2]">
-            NOTHING PLANNED YET
-          </span>
-        </div>
 
         <h2 className="mt-3.5 text-[27px] font-extrabold leading-[1.2] tracking-[-.025em] text-[#14405c] text-pretty">
           Not sure what to type?{" "}
-          <span className="font-serif font-normal italic tracking-normal">
-            Build the sentence.
-          </span>
         </h2>
         <p className="mt-2.5 max-w-[420px] text-[14.5px] leading-[1.55] text-[#6f8899] text-pretty">
           Tap a few of these and we&rsquo;ll write the prompt for you. Change

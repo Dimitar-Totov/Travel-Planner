@@ -3,7 +3,7 @@
  * + `src/lib/guideItineraries.ts` into MongoDB as published `Guide` documents,
  * all attributed to one placeholder author this script creates if it doesn't
  * already exist. Run once to give a fresh/empty database the same guides
- * `/destinations` used to render from a hardcoded array.
+ * `/guides` used to render from a hardcoded array.
  *
  * Run with:
  *

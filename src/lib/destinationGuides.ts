@@ -1,6 +1,6 @@
 /**
  * Seed source data for the `guides` collection — **no longer what
- * `/destinations` renders.** The feed now reads published `Guide` documents
+ * `/guides` renders.** The feed now reads published `Guide` documents
  * from MongoDB via `src/services/guides.ts` (`listPublishedGuides`); this
  * array is only `scripts/seed-guides.ts`'s input, run once to populate the
  * database with the same guides that used to be hardcoded here.

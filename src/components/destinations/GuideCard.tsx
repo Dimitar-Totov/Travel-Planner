@@ -10,14 +10,14 @@ const THUMB_SCRIM =
   "linear-gradient(180deg,rgba(15,47,71,.28) 0%,rgba(15,47,71,0) 42%)";
 
 /**
- * One guide in the /destinations feed. Pure presentation — the cover photo is
+ * One guide in the /guides feed. Pure presentation — the cover photo is
  * a real Unsplash image; the author avatar is still a CSS gradient (same
  * placeholder approach as `HotelsCard`'s `Hotel.gradient`).
  */
 export default function GuideCard({ guide }: { guide: DestinationGuide }) {
   return (
     <Link
-      href={`/destinations/guide/${guide.slug}/details`}
+      href={`/guides/guide/${guide.slug}/details`}
       className="group block cursor-pointer overflow-hidden rounded-2xl bg-white shadow-[0_18px_38px_-32px_rgba(20,52,78,.45)]"
     >
       {/* `place` doubles as the cover photo's alt text. The image lives in

@@ -9,7 +9,7 @@ import ItineraryDetailSkeleton, {
  * looks up a hero photograph; this file is the Suspense fallback the App Router
  * shows in the meantime, and the wait is long enough that its shape matters.
  * The silhouette itself lives in `ItineraryDetailSkeleton` — the same shape
- * `/destinations/guide/[guideId]/details` waits behind, because both routes
+ * `/guides/guide/[guideId]/details` waits behind, because both routes
  * resolve to the same `ItineraryDetailView` — so all that's left here is the
  * copy for this particular wait.
  */

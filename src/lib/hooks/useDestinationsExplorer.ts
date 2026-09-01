@@ -68,12 +68,12 @@ export interface DestinationsExplorerState {
 }
 
 /**
- * All of /destinations' client state, in one place so the search band (inside
+ * All of /guides' client state, in one place so the search band (inside
  * the photo backdrop) and the results feed (plain white, further down the page)
  * can be rendered as two separate components while still sharing one state.
  *
  * `guides` is the full published feed, loaded server-side by
- * `app/destinations/page.tsx` (`listPublishedGuides`, `src/services/guides.ts`)
+ * `app/guides/page.tsx` (`listPublishedGuides`, `src/services/guides.ts`)
  * and passed down as a prop — there is no client-side fetch. Every
  * tab/search/pagination concern still runs entirely client-side over that
  * array, exactly as it did over the old hardcoded `destinationGuides` import;

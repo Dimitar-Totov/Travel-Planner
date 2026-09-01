@@ -44,7 +44,7 @@ AI planning layer and rendered through the **same detail template as a community
   `Features` + `CtaBand`; it does not render a plan, it routes to `/plan?q=…`.
 - `/plan?q=<sentence>` (`src/app/plan/page.tsx`) — results page. Server component that
   calls `buildTripPlan(query)` directly (not via HTTP) and renders `PlanDetailView`, the
-  `/destinations` guide-detail template driven by a `TripPlan`. **Expect a ~40–70s
+  `/guides` guide-detail template driven by a `TripPlan`. **Expect a ~40–70s
   render** — it awaits a large model call — which is what `plan/loading.tsx` is for.
 - `/api/plan` (`src/app/api/plan/route.ts`) — `GET ?q=` / `POST { query }` HTTP mirror of
   the same `buildTripPlan`, for non-page consumers.
@@ -54,8 +54,8 @@ AI planning layer and rendered through the **same detail template as a community
   from the client via the `useAgent` hook (`src/lib/hooks/useAgent.ts`).
 
 Plus the auth routes — `/sign-in`, `/sign-up`, `/api/auth/[...nextauth]`, `POST /api/users`
-— described under "Auth" below, the destinations routes — `/destinations`,
-`/destinations/guide/[guideId]/details`, `/destinations/guide/[guideId]/edit`,
+— described under "Auth" below, the guides routes — `/guides`,
+`/guides/guide/[guideId]/details`, `/guides/guide/[guideId]/edit`,
 `POST /api/guides`, `PATCH`/`DELETE /api/guides/[guideId]`, `POST /api/uploads` —
 described under "Destinations" below and "Storage" below, and `/create-guide` — described
 under "Create Guide" below.
@@ -346,7 +346,7 @@ no custom domain (the user has none available):
   config file (`loadEnvConfig` in `node_modules/next/dist/server/config.js:1182`, ahead of
   the `next.config.ts` import) — that ordering is what makes a config-file env read legal.
 
-### Destinations (`src/app/destinations/`, `src/lib/destinationGuides.ts`, `src/lib/guideItineraries.ts`)
+### Destinations (`src/app/guides/`, `src/lib/destinationGuides.ts`, `src/lib/guideItineraries.ts`)
 
 A community guide feed plus a per-guide detail page, both backed by MongoDB end to end —
 writing (`POST /api/guides`) and reading (`src/services/guides.ts`) are both live. There is
@@ -355,7 +355,7 @@ still no _list/detail_ HTTP API for a non-page consumer (only the two server com
 hitting `/api/plan`), but nothing here is hardcoded/in-memory anymore.
 
 - `lib/destinationGuides.ts` / `lib/guideItineraries.ts` — **seed source data, not what
-  `/destinations` renders.** These are the pre-Mongo hardcoded modules (nineteen guides, not
+  `/guides` renders.** These are the pre-Mongo hardcoded modules (nineteen guides, not
   twelve, despite the older name/comment) that `scripts/seed-guides.ts` reads to populate a
   fresh database; nothing on the render path imports the arrays anymore. Both stay live for
   three other things, though: `destinationGuides.ts` defines `DestinationGuide` — the view
@@ -408,7 +408,7 @@ hitting `/api/plan`), but nothing here is hardcoded/in-memory anymore.
   so `pre("save")` computes `dayCount`/`stopCount` the normal way. Run via `tsx`
   (`@next/env`'s `loadEnvConfig` loads `.env.local` first, the same loader Next itself uses —
   `tsx` doesn't read dotenv files on its own).
-- `/destinations` (`app/destinations/page.tsx`) — a server component that calls
+- `/guides` (`app/guides/page.tsx`) — a server component that calls
   `listPublishedGuides()` once and passes the array to `DestinationsExplorer` as a prop.
   Filtering/search/pagination are unchanged and still entirely client-side:
   `useDestinationsExplorer` (`lib/hooks/useDestinationsExplorer.ts`) takes the guides array as
@@ -419,7 +419,7 @@ hitting `/api/plan`), but nothing here is hardcoded/in-memory anymore.
   distinct copy for "nothing published yet" vs. "your search matched nothing"
   (`hasAnyGuides`). `ScrollToTopButton` is mounted at the route boundary (not inside the
   explorer) so it only ever exists on this page.
-- `/destinations/guide/[guideId]/details` (`app/destinations/guide/[guideId]/details/page.tsx`)
+- `/guides/guide/[guideId]/details` (`app/guides/guide/[guideId]/details/page.tsx`)
   — a server component that calls `getPublishedGuideDetail(slug)`; a missing/unpublished slug
   calls `notFound()`. **No `generateStaticParams`** — slugs live in Mongo now and aren't
   knowable at build time, so the route renders dynamically per request. Resolves
@@ -520,16 +520,16 @@ anonymous author can write a whole guide and only meet the API's 401 at the end,
 `usePublishGuide` handles as its own failure kind rather than a generic error.
 
 - **On success the author is navigated to their new guide** —
-  `/destinations/guide/<slug>/details`, which resolves because both destinations routes now
+  `/guides/guide/<slug>/details`, which resolves because both guides routes now
   read from Mongo (see "Destinations"). `router.refresh()` fires first: the feed is a
   per-request server component and this session's router cache still holds the version from
-  before the guide existed, so without it a later trip back to `/destinations` can show a
+  before the guide existed, so without it a later trip back to `/guides` can show a
   list the new guide is missing from. Navigation is skipped when the 201 body yields no
   slug — the guide is saved either way, but there is no URL to send anyone to, and
   `PublishStatus` says exactly that rather than inventing one.
   - Navigating away **discards the in-memory draft**, which is acceptable because the
     guide is persisted by that point and an author who spots a typo can reopen it through
-    `/destinations/guide/[guideId]/edit` — see "Author permissions" below.
+    `/guides/guide/[guideId]/edit` — see "Author permissions" below.
 - `lib/hooks/usePublishGuide.ts` — the whole flow, kept out of `CreateGuidePageShell` for
   the same reason `useCreateGuideForm` is. Order is load-bearing: pre-flight (a
   `publishGuideSchema.omit({ coverImageUrl: true })` parse — the cover is still a `data:` URL
@@ -587,7 +587,7 @@ anonymous author can write a whole guide and only meet the API's 401 at the end,
   placed so far. **Only ever mounted while Edit mode is active and a stop is targeted** —
   see the "Map" section below for why that matters.
 
-### Author permissions (`src/app/api/guides/[guideId]/`, `/destinations/guide/[guideId]/edit`)
+### Author permissions (`src/app/api/guides/[guideId]/`, `/guides/guide/[guideId]/edit`)
 
 A guide's author — and only its author — can edit and delete it. `Guide.author` has always
 been a real `ObjectId` reference stamped from the session by `POST /api/guides`; this is the
@@ -612,7 +612,7 @@ and an admin has no override here.
   - **The write goes through `doc.save()`, and that is load-bearing.** `Guide.ts`'s
     `pre("save")` hook is what recomputes `dayCount`/`stopCount` from `days`, and
     `findOneAndUpdate`/`updateOne` skip document middleware entirely — an update-path write
-    of `days` leaves both counts stale, which silently breaks `/destinations`' "Weekends"
+    of `days` leaves both counts stale, which silently breaks `/guides`' "Weekends"
     tab (it filters the stored `dayCount` precisely so the filter can use an index).
   - **The slug is never re-derived from a changed title.** A published guide's links are
     already shared and indexed; re-slugifying would 404 every one of them. A retitle changes
@@ -639,7 +639,7 @@ and an admin has no override here.
   author edits their drafts too. **Ownership is part of the query filter**
   (`{ slug, author }`), not a post-fetch comparison, so a non-owner's guide never exists in
   memory to be leaked by accident and the `null` return is identical for both failure modes.
-- `/destinations/guide/[guideId]/details` reads the session alongside the guide (`Promise.all`
+- `/guides/guide/[guideId]/details` reads the session alongside the guide (`Promise.all`
   — neither depends on the other) and passes `GuideOwnerActions` down as an `ownerActions`
   slot on `GuideDetailView`, which forwards it into `GuideAuthorBar` inside
   `ItineraryDetailView`'s existing `byline`. **No prop was added to `ItineraryDetailView`** —
@@ -659,7 +659,7 @@ and an admin has no override here.
   labels are one word each — "Edit guide" overflowed the `flex-none` group at 320px — with
   the guide named in each `aria-label`, visible word first so speech input still matches
   (WCAG 2.5.3). A non-owner's render is byte-for-byte unchanged.
-- `/destinations/guide/[guideId]/edit` (`app/destinations/guide/[guideId]/edit/page.tsx`) —
+- `/guides/guide/[guideId]/edit` (`app/guides/guide/[guideId]/edit/page.tsx`) —
   no session redirects to `/sign-in` (via `withCallbackUrl`, the same helper the auth pages
   use); the `getGuideForAuthor` call **is** the authorization check, and its `null` is a
   `notFound()`. It renders the very same `CreateGuidePageShell` with an `initialGuide` prop —
@@ -688,7 +688,7 @@ and an admin has no override here.
     save, though: an unplaced stop is carrying a neighbour's coordinates, and once written they
     come back as a real chosen position with the "never placed" signal gone.
 - Still missing: no "my guides" list anywhere (an author reaches their guide through
-  `/destinations` or a saved URL), no save-as-draft control in the editor (so a draft is only
+  `/guides` or a saved URL), no save-as-draft control in the editor (so a draft is only
   reachable via the API or the seed script), and no `GET /api/guides/[guideId]` — the edit page
   calls `services/guides.ts` directly, the same way every other page does.
 
@@ -723,7 +723,7 @@ Six groups, each consumed by a specific layer above:
   marketing links are root-relative hashes (`/#how`) rendered with `next/link` so they
   resolve from off-landing pages while staying a same-route hash scroll on `/`.
 - `destinations/` — `DestinationsExplorer`/`DestinationsSearchBand`/`DestinationsResults`/
-  `GuideCard`/`ScrollToTopButton` for the `/destinations` feed, plus a `detail/` subfolder
+  `GuideCard`/`ScrollToTopButton` for the `/guides` feed, plus a `detail/` subfolder
   (`GuideHero`, `GuideAuthorBar`, `GuideStatsStrip`, `CollapsibleSection`, `DaySection`,
   `StopRow`, `StopThumb`, `StopPin`, `TransferConnector`, `StopDetailCard`, `GuideMap`,
   `MapOverlaySheet`, `GuideDetailView`) for the guide detail split view, plus
@@ -741,7 +741,7 @@ meta-package `package.json` depends on but the code never imports directly:
 
 - `destinations/detail/GuideMap.tsx` — read-only: numbered pins for an itinerary's existing
   stops, `fitBounds` framing, click-to-select. Reached by both `/plan` and
-  `/destinations/guide/[guideId]/details` through the shared detail template, and by
+  `/guides/guide/[guideId]/details` through the shared detail template, and by
   `create-guide/CreateGuidePreview.tsx` the same way.
 - `create-guide/LocationPickerModal.tsx` — the one click-to-**place** surface in the app,
   used to set a draft stop's `lat`/`lng`. A deliberately separate, leaner map rather than a

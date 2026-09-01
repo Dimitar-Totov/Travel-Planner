@@ -16,7 +16,7 @@ import {
  * row.
  *
  * The social controls are **local state only** — there is no accounts or social
- * API behind `/destinations` yet, so Follow and the like count live in this
+ * API behind `/guides` yet, so Follow and the like count live in this
  * component and reset on navigation. They are built now because the shape of
  * the interaction (optimistic toggle, count moves with it) is what the eventual
  * endpoint will have to serve, and because a row of dead pills reads as broken.

@@ -26,7 +26,7 @@ const BACKDROP_SCRIM =
   "#fff 100%)";
 
 /**
- * The whole of /destinations below the nav.
+ * The whole of /guides below the nav.
  *
  * The banner copy and the search band deliberately share ONE `<section>` — and
  * therefore one `<Image>` and one scrim — so the backdrop illustration reads as
@@ -49,7 +49,7 @@ const BACKDROP_SCRIM =
 export default function DestinationsExplorer({
   guides,
 }: {
-  /** The published feed, loaded server-side by `app/destinations/page.tsx`
+  /** The published feed, loaded server-side by `app/guides/page.tsx`
    *  (`listPublishedGuides`) — see `useDestinationsExplorer`'s doc comment. */
   guides: DestinationGuide[];
 }) {

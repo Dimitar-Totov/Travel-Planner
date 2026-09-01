@@ -161,7 +161,7 @@ export default function DeleteGuideDialog({
     }
 
     if (response.ok) {
-      // Both `/destinations` and this page are server components rendered per
+      // Both `/guides` and this page are server components rendered per
       // request, and this session's router cache still holds the versions that
       // included this guide. Without the refresh the feed we land on can still
       // be listing what we just deleted.
@@ -171,7 +171,7 @@ export default function DeleteGuideDialog({
       // queued behind it immediately rather than awaited, or the author gets a
       // "not found" flash on the way out of their own deleted guide.
       router.refresh();
-      router.push("/destinations");
+      router.push("/guides");
       // `busyRef`/`deleting` stay set. The push is asynchronous, and
       // re-enabling the buttons for those frames would allow a second DELETE
       // against a guide that no longer exists.

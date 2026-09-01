@@ -103,7 +103,7 @@ export default function GuideOwnerActions({
           row overflowed instead of wrapping, since the group is `flex-none`.
           The noun lives in the accessible name below, where it costs nothing. */}
       <Link
-        href={`/destinations/guide/${slug}/edit`}
+        href={`/guides/guide/${slug}/edit`}
         // Same reasoning as Delete's: the visible word is the first word of
         // the accessible name, so speech input still matches what's on screen
         // (WCAG 2.5.3), and what follows says which guide.

@@ -10,7 +10,7 @@ import type { TransferMode } from "@/lib/itinerary";
 
 /**
  * The `guides` collection — the persisted counterpart of the two hardcoded
- * data modules `/destinations` currently reads from, merged into one
+ * data modules `/guides` currently reads from, merged into one
  * document: `DestinationGuide` (`src/lib/destinationGuides.ts`, what the feed
  * card needs) and `GuideItinerary` (`src/lib/guideItineraries.ts`, what the
  * detail page adds on top). Nothing imports this model yet — it exists ahead
@@ -33,7 +33,7 @@ import type { TransferMode } from "@/lib/itinerary";
  * `authorUsername`/`authorAvatar` pair here and accept the update fan-out.
  *
  * `dayCount`/`stopCount` are maintained fields, not derived on read.
- * `/destinations`' "Weekends" tab filters on `days <= 4`; filtering on an
+ * `/guides`' "Weekends" tab filters on `days <= 4`; filtering on an
  * embedded array's length needs `$expr: { $lte: [{ $size: "$days" }, 4] } }`,
  * which can't use an index. Storing the count keeps that filter indexable and
  * is why the `pre("save")` hook below recomputes both off `this.days` on
@@ -78,7 +78,7 @@ const GUIDE_STATUSES: GuideStatus[] = ["draft", "published"];
  * would make the first save of a new draft throw a ValidationError, i.e. make
  * the `status: "draft"` default unusable. Conditioning on `status` is what
  * lets a half-written guide persist while still guaranteeing that anything
- * reaching `/destinations` is complete.
+ * reaching `/guides` is complete.
  *
  * Note this is the *last* line of defense, not the primary one: the publish
  * endpoint should reject an incomplete guide with per-field errors (the way
@@ -158,7 +158,7 @@ export interface IGuide extends Document {
   /**
    * Optional: `useCreateGuideForm` (`src/lib/hooks/useCreateGuideForm.ts`)
    * doesn't collect either `place` or `approxCostEUR` today, but
-   * `/destinations`' budget filter and thumbnail description
+   * `/guides`' budget filter and thumbnail description
    * (`DestinationGuide.place`/`approxCostEUR`) need them. The authoring form
    * has to grow these two fields before the feed can filter/display real
    * data for a guide created through it — flagged here rather than papered
@@ -226,7 +226,7 @@ const guideDaySchema = new Schema<IGuideDay>({
 
 const guideSchema = new Schema<IGuide>(
   {
-    // The identity the detail route (`/destinations/guide/[guideId]/details`)
+    // The identity the detail route (`/guides/guide/[guideId]/details`)
     // keys off — unique index is the constraint that makes a slug usable as
     // a URL segment at all.
     slug: {

@@ -4,7 +4,7 @@ import { SpinnerIcon } from "@/components/icons";
 /**
  * The loading-state counterpart of `ItineraryDetailView`.
  *
- * `/plan` and `/destinations/guide/[guideId]/details` render the same detail
+ * `/plan` and `/guides/guide/[guideId]/details` render the same detail
  * template through different adapters (`PlanDetailView`, `GuideDetailView`),
  * so their instant-loading UI is the same silhouette too — the nav, the
  * viewport-filling `lg` split, the reading column's hero / byline / intro /
