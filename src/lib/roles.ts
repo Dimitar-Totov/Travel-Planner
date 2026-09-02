@@ -49,3 +49,16 @@ export function isUserRole(value: unknown): value is UserRole {
     (USER_ROLES as readonly string[]).includes(value)
   );
 }
+
+/**
+ * Whether `role` may author a guide — gate both `/create-guide` (the page)
+ * and `POST /api/guides` (the actual boundary; the page check is only a UX
+ * nicety, see that route's own doc comment) on this one predicate so the two
+ * can't drift apart. Lives here rather than as a local check in either
+ * caller because both need the exact same allow-list, and any future
+ * consumer (an admin panel, a client-side "New guide" button) should read it
+ * from one place too.
+ */
+export function canCreateGuides(role: UserRole): boolean {
+  return role === "guide" || role === "admin";
+}

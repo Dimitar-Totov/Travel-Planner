@@ -3,6 +3,7 @@ import { MongoServerError } from "mongodb";
 import { auth } from "@/lib/auth";
 import { findInvalidPhotoUrl } from "@/lib/guides/photoUrls";
 import { connectDB } from "@/lib/mongodb";
+import { canCreateGuides, type UserRole } from "@/lib/roles";
 import {
   draftGuideSchema,
   guideStatusSchema,
@@ -10,6 +11,7 @@ import {
   publishGuideSchema,
 } from "@/lib/validation/guide";
 import Guide from "@/models/Guide";
+import { getUserRole } from "@/services/users";
 
 /**
  * POST /api/guides — create a guide, as a draft or published straight away.
@@ -28,6 +30,14 @@ import Guide from "@/models/Guide";
  *   paths like `"days.2.stops.5.lat"` — see `nestedFieldErrorsOf`), or
  *   `{ error }` for a request body that isn't valid JSON / isn't an object
  * - 401 `{ error }` if there is no signed-in session
+ * - 403 `{ error }` if the signed-in user's *current* role isn't
+ *   `"guide"`/`"admin"` (`canCreateGuides`, `lib/roles.ts`) — this is the
+ *   actual authorization boundary; `/create-guide`'s own redirect is only a
+ *   UX nicety on top of it. Checked against a fresh `getUserRole` database
+ *   read, not `session.user.role`: per CLAUDE.md's "Roles" section, the
+ *   session claim is a ≤15-minute-stale snapshot, good enough to render with
+ *   but not to gate a privileged mutation on — a user demoted moments ago
+ *   could otherwise keep publishing until their session next rotates.
  * - 409 `{ error }` if the derived slug collides with an existing guide
  * - 500 `{ error }` on unexpected failure, including R2 misconfiguration
  */
@@ -42,6 +52,45 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json(
       { error: "You must be signed in to create a guide." },
       { status: 401 },
+    );
+  }
+
+  // Authorship of a *specific* guide is checked elsewhere (`PATCH`/`DELETE
+  // /api/guides/[guideId]`, via the `{ slug, author }` query filter); this is
+  // the separate, coarser check for whether this account may create a guide
+  // at all. Checked before any body parsing, same as the 401 above — a
+  // wrong-role request shouldn't pay for JSON parsing or validation before
+  // being rejected.
+  //
+  // Deliberately not `session.user.role`: that claim is minted at sign-in and
+  // only refreshed on token rotation (up to `ACCESS_TOKEN_TTL_MS`, 15 minutes,
+  // stale — see CLAUDE.md's "Roles" section), so it would let a just-demoted
+  // account keep publishing for the rest of its access window. `getUserRole`
+  // (`services/users.ts`, the same function the JWT rotation branch uses) is
+  // a live read instead. Its contract: `null` means the account was deleted
+  // out from under an otherwise-valid session — treated as unauthorized, not
+  // as a server error; a *thrown* error means the database itself is
+  // unreachable, which is an infrastructure failure, not a fact about this
+  // user, so it fails closed with a 500 rather than either silently letting
+  // the write through or leaking an unhandled exception.
+  let currentRole: UserRole | null;
+  try {
+    currentRole = await getUserRole(session.user.id);
+  } catch (error) {
+    console.error(
+      "[api/guides] failed to re-check user role before create",
+      error,
+    );
+    return Response.json(
+      { error: "Unexpected error while verifying account permissions." },
+      { status: 500 },
+    );
+  }
+
+  if (!currentRole || !canCreateGuides(currentRole)) {
+    return Response.json(
+      { error: "Only guide accounts can publish guides." },
+      { status: 403 },
     );
   }
 

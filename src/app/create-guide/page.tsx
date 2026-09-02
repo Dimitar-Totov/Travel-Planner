@@ -1,4 +1,8 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { withCallbackUrl } from "@/lib/callbackUrl";
+import { canCreateGuides } from "@/lib/roles";
 import SiteNav from "@/components/site/SiteNav";
 import SiteFooter from "@/components/site/SiteFooter";
 import CreateGuidePageShell from "@/components/create-guide/CreateGuidePageShell";
@@ -21,15 +25,29 @@ export const metadata: Metadata = {
  * to the shell instead — it must come and go with the Preview mode, and the
  * mode is client state.
  *
- * **Not gated.** `/create-guide` is deliberately reachable by anyone for now.
- * A `role` now exists on every user and rides the session (`lib/roles.ts`,
- * `session.user.role`), but nothing reads it for an authorization decision
- * yet — this route has no `PROTECTED_PATHS` entry and no role check, so an
- * anonymous author can still write a whole guide and only meet
- * `POST /api/guides`' 401 at publish. Gating it on `"guide"`/`"admin"` is the
- * next phase; see the TODO in `README.md`.
+ * **Gated on sign-in plus role.** This route has no `PROTECTED_PATHS` entry
+ * (that mechanism only knows "authenticated or not", not roles — see
+ * `lib/auth.ts`), so the two checks live here instead: no session redirects
+ * to `/sign-in` with a callback back to this page, exactly like
+ * `/guides/guide/[guideId]/edit` does; a session whose `role` isn't
+ * `"guide"`/`"admin"` (`canCreateGuides`, `lib/roles.ts`) redirects to
+ * `/guides` rather than 404ing — unlike an author's draft slug, there's no
+ * "existence" of `/create-guide` worth hiding from a signed-in `"user"`, so a
+ * plain redirect is enough. This is only a UX nicety, though: the actual
+ * boundary is `POST /api/guides`' own 403, since nothing stops a direct
+ * request to that endpoint from bypassing a page-level check entirely.
  */
-export default function CreateGuidePage() {
+export default async function CreateGuidePage() {
+  const session = await auth();
+
+  if (!session?.user) {
+    redirect(withCallbackUrl("/sign-in", "/create-guide"));
+  }
+
+  if (!canCreateGuides(session.user.role)) {
+    redirect("/guides");
+  }
+
   return (
     <CreateGuidePageShell
       nav={<SiteNav variant="onLight" />}
