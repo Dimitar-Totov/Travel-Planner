@@ -2,16 +2,20 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { PlaneIcon } from "@/components/icons";
 import NavAccount, { NavAccountFallback } from "@/components/auth/NavAccount";
+import NavCreateGuideLink from "@/components/auth/NavCreateGuideLink";
 
 /** Root-relative so the marketing links still resolve from /plan and the auth
  *  pages, where those sections don't exist. On `/` a Link to "/#how" is a
- *  same-route hash scroll, not a reload. */
+ *  same-route hash scroll, not a reload.
+ *
+ *  Every link here is anonymous-friendly and therefore static. "Create Guide"
+ *  deliberately isn't in this array — it's role-gated, so it comes in through
+ *  NavCreateGuideLink below rather than making this component async. */
 const LINKS = [
   { label: "Product", href: "/#how" },
   { label: "Guides", href: "/guides" },
   { label: "How it works", href: "/#how" },
   { label: "Pricing", href: "/#cta" },
-  { label: "Create Guide", href: "/create-guide" },
 ];
 
 /**
@@ -60,6 +64,13 @@ export default function SiteNav({
             {l.label}
           </Link>
         ))}
+        {/* Its own boundary so the links above never wait on the session. The
+            fallback is nothing rather than a skeleton: reserving space for a
+            link most visitors will never be shown would leave a permanent gap
+            in the row, and the pop-in only affects guide-role authors. */}
+        <Suspense fallback={null}>
+          <NavCreateGuideLink className={linkClass} />
+        </Suspense>
       </div>
 
       <div className="flex items-center gap-[18px]">
