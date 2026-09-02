@@ -20,6 +20,22 @@ interface GuideDetailViewProps {
    * gradient placeholder for a missing key.
    */
   stopImages: Record<string, StopImagePair>;
+  /** The guide's live like count, sourced from the `Like` collection via
+   *  `getPublishedGuideDetail` (`src/services/guides.ts`). */
+  likeCount: number;
+  /** The guide's total comment count, sourced from the `Comment` collection
+   *  via `getPublishedGuideDetail` (`src/services/guides.ts`). */
+  commentCount: number;
+  /** Whether the signed-in reader is already among the guide's likers —
+   *  `false` for an anonymous reader. Resolved on the server by the page,
+   *  which compares `session.user.id` against `PublishedGuideDetail.likedUserIds`
+   *  (`src/services/guides.ts`). */
+  likedByViewer: boolean;
+  /** Whether there is a signed-in reader at all — distinct from
+   *  `likedByViewer`, which is always `false` for an anonymous reader
+   *  regardless of this flag. Lets the author bar decide whether liking is
+   *  even an option right now. */
+  isAuthenticated: boolean;
   /**
    * `GuideOwnerActions`, when the signed-in reader is this guide's author.
    *
@@ -72,6 +88,10 @@ export default function GuideDetailView({
   heroImage,
   stopCount,
   stopImages,
+  likeCount,
+  commentCount,
+  likedByViewer,
+  isAuthenticated,
   ownerActions,
   footer,
 }: GuideDetailViewProps) {
@@ -95,6 +115,10 @@ export default function GuideDetailView({
         <GuideAuthorBar
           guide={guide}
           publishedAt={itinerary.publishedAt}
+          likeCount={likeCount}
+          commentCount={commentCount}
+          likedByViewer={likedByViewer}
+          isAuthenticated={isAuthenticated}
           ownerActions={ownerActions}
         />
       }

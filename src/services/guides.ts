@@ -11,6 +11,8 @@ import Guide, { type GuideStatus, type IStopTransfer } from "@/models/Guide";
 // an accidental dependency on unrelated render order that would break the feed
 // the moment that changed. Registering it here makes this module self-contained.
 import "@/models/User";
+import Like from "@/models/Like";
+import Comment from "@/models/Comment";
 import type { DestinationGuide } from "@/lib/destinationGuides";
 import type { GuideItinerary } from "@/lib/guideItineraries";
 import type { GuideDay, GuideStop, TransferMode } from "@/lib/itinerary";
@@ -387,6 +389,32 @@ export interface PublishedGuideDetail {
    * user id belongs to the detail page's ownership check, not to every card.
    */
   authorId: string | null;
+  /**
+   * The guide's live like count, sourced from the `Like` collection
+   * (`src/models/Like.ts`) — one document per guide, `users.length` is the
+   * count — rather than the older, denormalized `Guide.likes` counter.
+   * `Guide.likes` is left untouched here and still backs the feed's sort and
+   * "Loved" tab; this is a separately-read, up-to-date figure for the detail
+   * page. `0` when the guide has never been liked (no `Like` document at all).
+   */
+  likeCount: number;
+  /**
+   * The raw list of user ids (as strings) who liked the guide, sourced from
+   * the same `Like` document `likeCount` above already reads — no second
+   * query. Analogous to `authorId`: a raw id exposed so the *page* (not this
+   * service) can compare it against the signed-in viewer's id without this
+   * module knowing anything about sessions. Empty when the guide has never
+   * been liked.
+   */
+  likedUserIds: string[];
+  /**
+   * The guide's total comment count, sourced from the `Comment` collection
+   * (`src/models/Comment.ts`) — one document per comment, so this is a
+   * `countDocuments` rather than a single document's field the way
+   * `likeCount` reads `Like.users.length`. `0` when the guide has no
+   * comments yet.
+   */
+  commentCount: number;
 }
 
 /** One published guide by slug, or `null` if it doesn't exist / isn't
@@ -403,6 +431,17 @@ export async function getPublishedGuideDetail(
 
   if (!doc) return null;
 
+  // Two independent reads keyed off the same already-resolved `doc._id` —
+  // neither depends on the other's result, so they run concurrently rather
+  // than serialized one after the other (same convention as the page-level
+  // `Promise.all([getPublishedGuideDetail(...), auth()])` one layer up).
+  const [likeDoc, commentCount] = await Promise.all([
+    Like.findOne({ guide: doc._id })
+      .select("users")
+      .lean<{ users: Types.ObjectId[] } | null>(),
+    Comment.countDocuments({ guide: doc._id }),
+  ]);
+
   return {
     guide: toDestinationGuide(doc),
     itinerary: toGuideItinerary(doc),
@@ -411,6 +450,9 @@ export async function getPublishedGuideDetail(
     // is what keeps this side of the boundary JSON-serializable: an `ObjectId`
     // handed to a client component is a runtime error, not a type error.
     authorId: doc.author ? doc.author._id.toString() : null,
+    likeCount: likeDoc?.users.length ?? 0,
+    likedUserIds: likeDoc?.users.map((id) => id.toString()) ?? [],
+    commentCount,
   };
 }
 
