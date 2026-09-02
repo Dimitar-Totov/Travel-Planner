@@ -20,6 +20,8 @@ Before writing any commit message, inspect the repository's existing history and
 3. If the repository has no history (initial commit), default to Conventional Commits with imperative-mood subjects.
 4. Match the detected format exactly for every commit in this session — never mix styles.
 
+## Do not add readme.md file to stage or commit it. It holds user data. 
+
 ## Change Inspection Standard
 
 Run the following before deciding on any groupings:
