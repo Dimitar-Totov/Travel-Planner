@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "seed:guides": "tsx scripts/seed-guides.ts",
+    "seed:likes-comments": "tsx scripts/seed-likes-comments.ts",
     "backfill:user-roles": "tsx scripts/backfill-user-roles.ts"
   },
   "dependencies": {
