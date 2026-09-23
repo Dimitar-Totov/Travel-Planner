@@ -4,6 +4,11 @@ import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import { fieldErrorsOf } from "@/lib/validation/auth";
 import { createCommentSchema } from "@/lib/validation/comment";
+import {
+  commentBurstKey,
+  consumeRateLimit,
+  COMMENT_BURST_LIMIT,
+} from "@/services/rateLimit";
 // Side-effect import, and load-bearing: `.populate({ path: "user", ... })`
 // below resolves `Comment.user`'s `ref: "User"` through mongoose's model
 // registry, and a model only lands in that registry when its module is
@@ -24,7 +29,10 @@ import Guide from "@/models/Guide";
  * `/api/guides/[guideId]`. No auth required — reading a published guide's
  * comments is anonymous-friendly, exactly like the guide detail page itself
  * (`src/proxy.ts`'s matcher already excludes all of `/api/*`, and
- * `PROTECTED_PATHS` in `src/lib/auth.ts` is empty).
+ * `PROTECTED_PATHS` in `src/lib/auth.ts` is empty). Deliberately left
+ * unlimited, unlike the `POST` below — it's a read, mirroring the guide page's
+ * own anonymous-friendly access, with no write to protect and no per-user
+ * identity to key a bucket on.
  *
  * Responses:
  * - 200 `{ comments: [{ id, username, comment, createdAt }] }`, sorted
@@ -109,6 +117,11 @@ export async function GET(
  * - 401 `{ error }` if there is no signed-in session
  * - 404 `{ error }` if no guide with that slug is published — mirrors
  *   `getPublishedGuideDetail`'s own visibility rule
+ * - 429 `{ error, retryAfterSeconds }` if the signed-in user has posted too
+ *   many comments recently — checked before the body is even parsed, so it
+ *   also caps the cost of a repeated invalid-JSON or oversized body. No
+ *   `fields` key on this response: `{ error, fields }` means "your input is
+ *   wrong," and nothing is wrong with the comment text on a 429.
  * - 500 `{ error }` on unexpected failure
  */
 export async function POST(
@@ -121,6 +134,26 @@ export async function POST(
     return Response.json(
       { error: "You must be signed in to comment." },
       { status: 401 },
+    );
+  }
+
+  // Global per user, not per-guide — a comment's cost is attention across the
+  // whole site, and a per-guide-only limit would let someone spam-post to
+  // every guide in turn instead of just one. Checked before the body is even
+  // parsed, so it also caps the cost of repeated invalid-JSON/oversized
+  // bodies.
+  const burstResult = await consumeRateLimit(
+    commentBurstKey(session.user.id),
+    COMMENT_BURST_LIMIT,
+  );
+  if (!burstResult.allowed) {
+    return Response.json(
+      {
+        error:
+          "You've posted a lot of comments just now. Try again in about 10 minutes.",
+        retryAfterSeconds: burstResult.retryAfterSeconds,
+      },
+      { status: 429 },
     );
   }
 

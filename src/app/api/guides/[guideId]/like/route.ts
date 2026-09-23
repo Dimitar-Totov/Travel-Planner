@@ -4,6 +4,13 @@ import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import Guide from "@/models/Guide";
 import Like from "@/models/Like";
+import {
+  consumeRateLimit,
+  likeGlobalKey,
+  likeGuideKey,
+  LIKE_GLOBAL_LIMIT,
+  LIKE_PER_GUIDE_LIMIT,
+} from "@/services/rateLimit";
 
 /**
  * POST /api/guides/[guideId]/like — toggle the signed-in user's like on one
@@ -18,7 +25,15 @@ import Like from "@/models/Like";
  * - 401 `{ error }` if there is no signed-in session
  * - 404 `{ error }` if no guide with that slug is published — mirrors
  *   `getPublishedGuideDetail`'s own visibility rule
+ * - 429 `{ error, retryAfterSeconds }` if the signed-in user is liking too
+ *   quickly — see the rate-limit check below
  * - 500 `{ error }` on unexpected failure
+ *
+ * The rate-limit check runs before the guide lookup on purpose, for two
+ * reasons: it caps the cost of hammering a slug that doesn't exist or isn't
+ * published (a `Guide.findOne` per attempt otherwise), and it can never leak
+ * slug-existence information to an unauthenticated caller, since the 401
+ * check above it already turns those away first.
  *
  * A benign, acceptable race exists between the membership read and the
  * find-and-update write under a rapid double-click — this app doesn't reach
@@ -43,6 +58,41 @@ export async function POST(
   }
 
   const { guideId: slug } = await ctx.params;
+
+  // Sequential, not `Promise.all`'d — this order is load-bearing. If both
+  // buckets were consumed in parallel, a request already blocked by the
+  // global limit would still burn its per-guide budget on every hammered
+  // attempt, a silent escalation. Checking the global bucket first and only
+  // consuming the per-guide bucket when it allows keeps a blocked user's
+  // per-guide budget untouched.
+  const globalResult = await consumeRateLimit(
+    likeGlobalKey(session.user.id),
+    LIKE_GLOBAL_LIMIT,
+  );
+  if (!globalResult.allowed) {
+    return Response.json(
+      {
+        error: "You're liking too quickly. Try again in about a minute.",
+        retryAfterSeconds: globalResult.retryAfterSeconds,
+      },
+      { status: 429 },
+    );
+  }
+
+  const perGuideResult = await consumeRateLimit(
+    likeGuideKey(session.user.id, slug),
+    LIKE_PER_GUIDE_LIMIT,
+  );
+  if (!perGuideResult.allowed) {
+    return Response.json(
+      {
+        error:
+          "You're liking this guide too quickly. Try again in about a minute.",
+        retryAfterSeconds: perGuideResult.retryAfterSeconds,
+      },
+      { status: 429 },
+    );
+  }
 
   try {
     await connectDB();
