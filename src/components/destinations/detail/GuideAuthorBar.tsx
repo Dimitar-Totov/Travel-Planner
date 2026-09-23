@@ -127,6 +127,20 @@ export default function GuideAuthorBar({
   // server held before the comment was written.
   const [comments, setComments] = useState(commentCount);
   const [likeError, setLikeError] = useState<string | null>(null);
+  /**
+   * When the server said this reader may toggle again, as a `Date.now()`
+   * timestamp — or `null` when nothing is holding them back.
+   *
+   * Only ever learned from an actual 429, never pre-computed and never
+   * persisted: a reload mid-cooldown legitimately spends one more click
+   * learning the same thing again, which is cheaper than keeping a second,
+   * drifting copy of the server’s window in the browser. Always read as a
+   * plain time comparison rather than a boolean flag, so it self-expires even
+   * if the release timer below never gets to fire.
+   */
+  const [likeCooldownUntil, setLikeCooldownUntil] = useState<number | null>(
+    null,
+  );
   /** Bumped on each successful like so the ring behind the heart remounts and
    *  replays; cleared by its own `onAnimationComplete`. */
   const [burst, setBurst] = useState<number | null>(null);
@@ -140,6 +154,7 @@ export default function GuideAuthorBar({
   const copyTimer = useRef<number | undefined>(undefined);
   const hintTimer = useRef<number | undefined>(undefined);
   const likeErrorTimer = useRef<number | undefined>(undefined);
+  const likeCooldownTimer = useRef<number | undefined>(undefined);
   /** In-flight guard for the like POST. A ref, not state: a second click in the
    *  same tick must see the flag the first one set, before any re-render. */
   const likeBusy = useRef(false);
@@ -154,11 +169,13 @@ export default function GuideAuthorBar({
       window.clearTimeout(copyTimer.current);
       window.clearTimeout(hintTimer.current);
       window.clearTimeout(likeErrorTimer.current);
+      window.clearTimeout(likeCooldownTimer.current);
     },
     [],
   );
 
   const hintVisible = !isAuthenticated && (hintOpen || hintPinned);
+  const likeCoolingDown = isCoolingDown(likeCooldownUntil);
 
   function pinHint() {
     setHintPinned(true);
@@ -175,12 +192,43 @@ export default function GuideAuthorBar({
     setHintOpen(false);
   }
 
-  function showLikeError(message: string) {
+  /** `holdMs` overrides the read-once default for a rate-limit notice: while
+   *  a cooldown is running the message isn’t a notice that has been read and
+   *  finished with, it is the standing explanation for why the chip is inert —
+   *  so it stays up for exactly as long as the chip does. */
+  function showLikeError(message: string, holdMs: number = LIKE_ERROR_MS) {
     setLikeError(message);
     window.clearTimeout(likeErrorTimer.current);
     likeErrorTimer.current = window.setTimeout(
       () => setLikeError(null),
-      LIKE_ERROR_MS,
+      holdMs,
+    );
+  }
+
+  /** Arms the local lock from what the server actually said, and schedules its
+   *  own release. A body we couldn’t read a usable number out of still gets a
+   *  message — it just can’t gate the button, which is the safe way round: the
+   *  next click costs one more 429 rather than an indefinite dead control. */
+  function startLikeCooldown(retryAfterSeconds: number | null) {
+    if (retryAfterSeconds === null) {
+      showLikeError("You’re liking too fast. Please try again in a moment.");
+      return;
+    }
+
+    const holdMs = retryAfterSeconds * 1000;
+    setLikeCooldownUntil(Date.now() + holdMs);
+    // Coarse, static prose, deliberately not a ticking countdown: a 1Hz
+    // re-render of a live region would re-announce the message every second.
+    showLikeError(
+      `You’re liking too fast. Try again in ${formatRetryAfter(
+        retryAfterSeconds,
+      )}.`,
+      holdMs,
+    );
+    window.clearTimeout(likeCooldownTimer.current);
+    likeCooldownTimer.current = window.setTimeout(
+      () => setLikeCooldownUntil(null),
+      holdMs,
     );
   }
 
@@ -215,6 +263,10 @@ export default function GuideAuthorBar({
       return;
     }
     if (likeBusy.current) return;
+    // The inert treatment below is not the gate — `aria-disabled` leaves the
+    // button genuinely clickable on purpose — so the cooldown is enforced here,
+    // beside the in-flight guard, rather than only in the styling.
+    if (isCoolingDown(likeCooldownUntil)) return;
     likeBusy.current = true;
 
     const previousLiked = liked;
@@ -247,8 +299,19 @@ export default function GuideAuthorBar({
 
     if (!response.ok) {
       likeBusy.current = false;
+      // Rolling the optimistic toggle back stays correct for a 429
+      // *specifically*: the limiter is checked before any write, so nothing was
+      // persisted and the filled heart on screen is simply wrong. Don’t
+      // "optimize" this branch out of the rollback on the assumption that a
+      // rejected toggle half-landed.
       setLiked(previousLiked);
       setLikes(previousLikes);
+
+      if (response.status === 429) {
+        startLikeCooldown(parseRetryAfter(await readJson(response)));
+        return;
+      }
+
       showLikeError(
         response.status === 401
           ? // The props said there was a session; by the time the click landed
@@ -350,6 +413,13 @@ export default function GuideAuthorBar({
                 // than an `aria-pressed="false"` promising a state it can't
                 // reach.
                 aria-pressed={isAuthenticated ? liked : undefined}
+                // `aria-disabled`, never the native `disabled` attribute — the
+                // same call the comment composer’s textarea already makes. A
+                // genuinely disabled control drops out of the tab order, which
+                // would throw focus somewhere unrelated the instant the server
+                // rate-limited a reader mid-keyboard-navigation. The click is
+                // short-circuited in `toggleLike` instead.
+                aria-disabled={likeCoolingDown || undefined}
                 aria-describedby={hintVisible ? hintId : undefined}
                 // The visible text is the number alone, which names nothing —
                 // the count is repeated inside the label so the visible string
@@ -363,10 +433,23 @@ export default function GuideAuthorBar({
                 // affordance, shadow instead of movement — the reason
                 // `tp-chip-shadow` exists in the first place (see its comment
                 // in globals.css).
-                className={`tp-chip-shadow inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-2.5 text-[13px] font-bold outline-offset-2 outline-brand-500 focus-visible:outline-2 ${
+                //
+                // The cooldown branch drops `tp-chip-shadow` rather than
+                // layering `shadow-none` over it: the class is declared unlayered
+                // in globals.css, so `.tp-chip-shadow:hover` beats any Tailwind
+                // utility regardless of specificity and the chip would keep
+                // lighting up under the pointer while inert. The values match the
+                // `disabled:` set the comment composer’s submit button uses.
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-2.5 text-[13px] font-bold outline-offset-2 outline-brand-500 focus-visible:outline-2 ${
                   liked
                     ? "bg-gold-warm/12 text-gold-deep"
-                    : "bg-surface-2 text-[#68767f] hover:bg-[#eaf3f9] hover:text-brand-700"
+                    : "bg-surface-2 text-[#68767f]"
+                } ${
+                  likeCoolingDown
+                    ? "cursor-not-allowed opacity-55 shadow-none"
+                    : liked
+                      ? "tp-chip-shadow cursor-pointer"
+                      : "tp-chip-shadow cursor-pointer hover:bg-[#eaf3f9] hover:text-brand-700"
                 }`}
               >
                 <span className="relative inline-flex h-[15px] w-[15px] items-center justify-center">
@@ -532,7 +615,14 @@ function LikeBubble({
       // `pointer-events-none` so the bubble can never sit between the pointer
       // and the button that raised it — hovering it would otherwise fire
       // `mouseleave` on the chip and flicker the tooltip away.
-      className={`pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-20 w-max max-w-[210px] rounded-lg px-2.5 py-1.5 text-center text-[12px] font-semibold leading-[1.35] text-white shadow-[0_12px_24px_-14px_rgba(11,36,56,.9)] ${
+      //
+      // Anchored *below* the chip, not above: this row can sit right under
+      // the page's sticky nav with almost no room above it (a guide's author
+      // bar scrolls up under the header well before the page ends), so a
+      // bubble opening upward can render partly above the viewport with
+      // nothing to scroll to reveal it. Below always has room — the page
+      // simply continues — so it's the direction that can never clip.
+      className={`pointer-events-none absolute top-[calc(100%+8px)] left-1/2 z-20 w-max max-w-[210px] rounded-lg px-2.5 py-1.5 text-center text-[12px] font-semibold leading-[1.35] text-white shadow-[0_12px_24px_-14px_rgba(11,36,56,.9)] ${
         tone === "danger" ? "bg-danger" : "bg-navy-deep"
       }`}
     >
@@ -567,4 +657,69 @@ function parseLikeResponse(
     return null;
   }
   return { liked, likeCount };
+}
+
+/**
+ * `retryAfterSeconds` off the route’s 429 body, or `null`.
+ *
+ * Same discipline as `parseLikeResponse` above: the body is untrusted at the
+ * type level, so a missing, non-numeric, non-finite or non-positive value is a
+ * parse miss rather than a cooldown of `NaN` milliseconds — which
+ * `window.setTimeout` fires immediately, and which `Date.now() + NaN` turns
+ * into a comparison that is `false` forever.
+ */
+function parseRetryAfter(body: unknown): number | null {
+  if (typeof body !== "object" || body === null) return null;
+  const { retryAfterSeconds } = body as { retryAfterSeconds?: unknown };
+  if (
+    typeof retryAfterSeconds !== "number" ||
+    !Number.isFinite(retryAfterSeconds) ||
+    retryAfterSeconds <= 0
+  ) {
+    return null;
+  }
+  return retryAfterSeconds;
+}
+
+/**
+ * A retry window as coarse prose — "about 30 seconds", "about a minute",
+ * "about 10 minutes".
+ *
+ * Deliberately approximate, and deliberately static rather than a ticking
+ * countdown: a 1Hz re-render would re-announce the message through the bar’s
+ * `aria-live` region every second, which is a lot of noise to spend on a number
+ * nobody acts on to the second. Rounding outwards also keeps the copy honest —
+ * the exact boundary is the server’s, and a reader clicking the instant a
+ * precise countdown hit zero would only earn a second 429.
+ */
+function formatRetryAfter(seconds: number): string {
+  if (seconds < 50) {
+    return `about ${Math.max(5, Math.ceil(seconds / 5) * 5)} seconds`;
+  }
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  return minutes === 1 ? "about a minute" : `about ${minutes} minutes`;
+}
+
+/**
+ * Whether a cooldown timestamp is still in the future.
+ *
+ * A function of the clock rather than a boolean held in state, so a window
+ * whose release timer never fired — or was never registered — still stops
+ * mattering the moment it lapses, with no ticking interval behind it.
+ *
+ * Module scope is deliberate: `react-hooks/purity` refuses a clock read inside
+ * a component body, and in general it is right to. This is the narrow case
+ * where that read *is* the point, and it is safe here because
+ * `likeCooldownUntil` is `null` on the server render and through
+ * hydration (a cooldown can only ever be learned from a 429 this browser
+ * received), and because every re-render whose answer differs is one React was
+ * already performing anyway.
+ *
+ * Don’t wrap the call site in `useMemo` (and don’t enable React Compiler
+ * without revisiting this): memoising on the timestamp alone would freeze the
+ * answer at what it was when the cooldown was armed, which is exactly what a
+ * window with no release timer behind it depends on not happening.
+ */
+function isCoolingDown(until: number | null): boolean {
+  return until !== null && until > Date.now();
 }

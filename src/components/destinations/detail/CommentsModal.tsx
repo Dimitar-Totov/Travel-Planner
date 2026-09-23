@@ -20,6 +20,19 @@ const FOCUSABLE =
  */
 const MAX_COMMENT_LENGTH = 2000;
 
+/**
+ * Above this, a rate-limit cooldown gets no auto-clear timer at all.
+ *
+ * `postCooldownUntil` is read as a timestamp comparison, never a boolean, so it
+ * expires on its own the next time anything re-renders — and in a composer that
+ * re-renders on every keystroke, that is immediate in practice. A ten-minute
+ * `setTimeout` would therefore buy nothing except a long-lived handle to keep
+ * alive and clean up. A short one is still worth keeping, because a reader who
+ * stops typing to wait out a thirty-second window would otherwise stare at a
+ * dead button until they touched the textarea again.
+ */
+const COOLDOWN_AUTOCLEAR_MAX_MS = 120_000;
+
 /** One comment as `GET /api/guides/<slug>/comments` returns it, and as `POST`
  *  to the same route answers with the one it just created. `createdAt` is an
  *  ISO string — the wire has no `Date`s, and neither does this component. */
@@ -112,11 +125,30 @@ export default function CommentsModal({
   const [draft, setDraft] = useState("");
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
+  /**
+   * When the server said this reader may post again, as a `Date.now()`
+   * timestamp — or `null` when nothing is holding them back. Learned only from
+   * an actual 429, never pre-computed and never persisted: a reload
+   * mid-cooldown spends one more submit learning the same thing again, which
+   * beats keeping a second, drifting copy of the server’s window here.
+   */
+  const [postCooldownUntil, setPostCooldownUntil] = useState<number | null>(
+    null,
+  );
 
   /** In-flight guard for the POST, and the reason Escape is inert while it is
    *  set. A ref, not state: a second submit in the same tick must see the flag
    *  the first one wrote, before any re-render. */
   const postingRef = useRef(false);
+
+  /** Handle for the cooldown’s optional auto-clear, so closing the dialog
+   *  mid-window doesn’t leave a timer calling `setPostCooldownUntil` on a gone
+   *  component — the same cleanup story the scroll-lock and key-handler effects
+   *  above and below already follow. Only ever set for a short window (see
+   *  `COOLDOWN_AUTOCLEAR_MAX_MS`). */
+  const cooldownTimer = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(cooldownTimer.current), []);
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
@@ -231,12 +263,19 @@ export default function CommentsModal({
 
   const trimmedLength = draft.trim().length;
   const overLimit = trimmedLength > MAX_COMMENT_LENGTH;
-  const canSubmit = trimmedLength > 0 && !overLimit && !posting;
+  // A plain time comparison rather than a stored boolean, so a cooldown with no
+  // auto-clear timer behind it still stops mattering the moment it lapses.
+  const coolingDown = isCoolingDown(postCooldownUntil);
+  // Only the submit button is gated. The textarea stays fully editable through a
+  // cooldown — waiting out a rate limit is exactly when someone rereads and
+  // edits what they wrote.
+  const canSubmit = trimmedLength > 0 && !overLimit && !posting && !coolingDown;
 
   async function submitComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const comment = draft.trim();
     if (postingRef.current || comment.length === 0 || overLimit) return;
+    if (isCoolingDown(postCooldownUntil)) return;
 
     postingRef.current = true;
     setPosting(true);
@@ -267,6 +306,11 @@ export default function CommentsModal({
     if (!response.ok) {
       finishPosting();
       setPostError(postFailureMessage(response.status, body));
+      if (response.status === 429) startPostCooldown(parseRetryAfter(body));
+      // Returning *before* `setDraft("")` below is what leaves the draft in the
+      // box on every failure path. Load-bearing for the 429 case in particular:
+      // nothing was written, so this textarea holds the only copy of what they
+      // wrote, and they are being asked to wait and send exactly that again.
       return;
     }
 
@@ -315,6 +359,24 @@ export default function CommentsModal({
   function finishPosting() {
     postingRef.current = false;
     setPosting(false);
+  }
+
+  /** Arms the local lock from what the server actually said. A body we couldn’t
+   *  read a usable number out of arms nothing — `postFailureMessage` has already
+   *  said so in words, and a cooldown of unknown length is worse than one more
+   *  rejected submit. */
+  function startPostCooldown(retryAfterSeconds: number | null) {
+    if (retryAfterSeconds === null) return;
+
+    const holdMs = retryAfterSeconds * 1000;
+    setPostCooldownUntil(Date.now() + holdMs);
+    window.clearTimeout(cooldownTimer.current);
+    if (holdMs <= COOLDOWN_AUTOCLEAR_MAX_MS) {
+      cooldownTimer.current = window.setTimeout(
+        () => setPostCooldownUntil(null),
+        holdMs,
+      );
+    }
   }
 
   function onDraftKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>) {
@@ -575,6 +637,16 @@ function postFailureMessage(status: number, body: unknown): string {
   if (status === 404) {
     return "This guide isn’t there any more, so your comment wasn’t posted.";
   }
+  if (status === 429) {
+    // Deliberately not through `fieldErrorOf`: the rate-limit body carries no
+    // `fields` key at all, and nothing about *this* comment is the problem.
+    const retryAfterSeconds = parseRetryAfter(body);
+    return retryAfterSeconds === null
+      ? "You’ve posted a lot of comments just now. Please try again later."
+      : `You’ve posted a lot of comments just now. You can post again in ${formatRetryAfter(
+          retryAfterSeconds,
+        )}.`;
+  }
   return "We couldn’t post your comment. Please try again in a moment.";
 }
 
@@ -585,6 +657,48 @@ function fieldErrorOf(body: unknown, key: string): string | null {
   if (typeof fields !== "object" || fields === null) return null;
   const message = (fields as Record<string, unknown>)[key];
   return typeof message === "string" && message.trim() !== "" ? message : null;
+}
+
+/**
+ * `retryAfterSeconds` off the route’s 429 body, or `null`.
+ *
+ * Kept local, the way `readJson` and `fieldErrorOf` are, rather than imported:
+ * `services/rateLimit.ts` is server-only (it pulls in mongoose), and there is no
+ * shared client-side parsing module in this app — `lib/validation/*` is Zod
+ * schemas for API routes. `GuideAuthorBar` holds its own copy for the like
+ * endpoint’s identical 429 shape.
+ *
+ * Same discipline as `parseComment` below: the body is untrusted at the type
+ * level, so a missing, non-numeric, non-finite or non-positive value is a parse
+ * miss rather than a cooldown of `NaN` milliseconds — which `window.setTimeout`
+ * fires immediately, and which `Date.now() + NaN` turns into a comparison that
+ * is `false` forever.
+ */
+function parseRetryAfter(body: unknown): number | null {
+  if (typeof body !== "object" || body === null) return null;
+  const { retryAfterSeconds } = body as { retryAfterSeconds?: unknown };
+  if (
+    typeof retryAfterSeconds !== "number" ||
+    !Number.isFinite(retryAfterSeconds) ||
+    retryAfterSeconds <= 0
+  ) {
+    return null;
+  }
+  return retryAfterSeconds;
+}
+
+/**
+ * A retry window as coarse prose — "about 30 seconds", "about a minute",
+ * "about 10 minutes". Static by design: a ticking countdown inside a
+ * `role="alert"` would re-announce itself every second, and the exact boundary
+ * is the server’s to hold, not this component’s to promise to the second.
+ */
+function formatRetryAfter(seconds: number): string {
+  if (seconds < 50) {
+    return `about ${Math.max(5, Math.ceil(seconds / 5) * 5)} seconds`;
+  }
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  return minutes === 1 ? "about a minute" : `about ${minutes} minutes`;
 }
 
 /**
@@ -643,4 +757,28 @@ function formatPostedAt(iso: string): string | null {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
   return POSTED_AT_FORMAT.format(date);
+}
+
+/**
+ * Whether a cooldown timestamp is still in the future.
+ *
+ * A function of the clock rather than a boolean held in state, so a window
+ * whose release timer never fired — or was never registered — still stops
+ * mattering the moment it lapses, with no ticking interval behind it.
+ *
+ * Module scope is deliberate: `react-hooks/purity` refuses a clock read inside
+ * a component body, and in general it is right to. This is the narrow case
+ * where that read *is* the point, and it is safe here because
+ * `postCooldownUntil` is `null` on the server render and through
+ * hydration (a cooldown can only ever be learned from a 429 this browser
+ * received), and because every re-render whose answer differs is one React was
+ * already performing anyway.
+ *
+ * Don’t wrap the call site in `useMemo` (and don’t enable React Compiler
+ * without revisiting this): memoising on the timestamp alone would freeze the
+ * answer at what it was when the cooldown was armed, which is exactly what a
+ * window with no release timer behind it depends on not happening.
+ */
+function isCoolingDown(until: number | null): boolean {
+  return until !== null && until > Date.now();
 }
