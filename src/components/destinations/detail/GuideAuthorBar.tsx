@@ -43,9 +43,11 @@ const LIKE_ERROR_MS = 3600;
  * - **Comments** are real: `commentCount` is a server read from the `Comment`
  *   collection, rendered in the resting chip the way the like count is, and the
  *   button opens `CommentsModal`, which reads `GET /api/guides/<slug>/comments`
- *   and, for a signed-in reader, posts to it. The modal reports a successful
- *   post back through `onCommentPosted` so the chip and the modal's own badge
- *   never show two different numbers for the same guide.
+ *   and, for a signed-in reader, posts to it (and edits or deletes their own
+ *   comments). The modal reports a successful post back through
+ *   `onCommentPosted`, and a successful delete through `onCommentDeleted`, so
+ *   the chip and the modal's own badge never show two different numbers for
+ *   the same guide.
  *
  * The row has two shapes, decided by `ownerActions`:
  *
@@ -578,6 +580,10 @@ export default function GuideAuthorBar({
             // already succeeded, so this bar knows the answer without a round
             // trip.
             onCommentPosted={() => setComments((n) => n + 1)}
+            // The same bargain in reverse, for a reader deleting their own
+            // comment. Floored at zero for the reason the like count is: the
+            // seed and this session's arithmetic come from different reads.
+            onCommentDeleted={() => setComments((n) => Math.max(0, n - 1))}
             onClose={() => setCommentsOpen(false)}
           />
         )}

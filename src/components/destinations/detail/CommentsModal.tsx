@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useId,
   useOptimistic,
@@ -8,9 +9,20 @@ import {
   useState,
   useTransition,
 } from "react";
-import type { FormEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
+import type {
+  FormEvent,
+  KeyboardEvent as ReactKeyboardEvent,
+  RefObject,
+} from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { CloseIcon, CommentIcon, SpinnerIcon } from "@/components/icons";
+import {
+  CloseIcon,
+  CommentIcon,
+  EditIcon,
+  MoreIcon,
+  SpinnerIcon,
+  TrashIcon,
+} from "@/components/icons";
 
 /** Everything that can hold focus and isn't explicitly removed from the tab
  *  order. Same list `DeleteGuideDialog`, `MapOverlaySheet` and
@@ -39,6 +51,17 @@ const MAX_COMMENT_LENGTH = 2000;
  * dead button until they touched the textarea again.
  */
 const COOLDOWN_AUTOCLEAR_MAX_MS = 120_000;
+
+/** How long a failed delete keeps its note up under the row — the same
+ *  read-once window `GuideAuthorBar`'s like-failure bubble uses. */
+const ROW_ERROR_MS = 3600;
+
+/**
+ * Prefix for the stand-in id an optimistic comment carries until its `POST`
+ * settles. Named so `isOwnComment` can recognise one: it has no server-side
+ * existence yet, so there is nothing an edit or delete could be addressed to.
+ */
+const OPTIMISTIC_ID_PREFIX = "optimistic-";
 
 /** One comment as `GET /api/guides/<slug>/comments` returns it, and as `POST`
  *  to the same route answers with the one it just created. `createdAt` is an
@@ -71,12 +94,15 @@ interface CommentsModalProps {
   isAuthenticated: boolean;
   /**
    * The signed-in reader's own username, threaded down the same way
-   * `isAuthenticated` is. Used for one thing: the name on this reader's
-   * optimistic comment while its `POST` is still in flight. The server stamps
-   * the real author from the session, and the settled comment replaces the
+   * `isAuthenticated` is. Used for two things: the name on this reader's
+   * optimistic comment while its `POST` is still in flight, and deciding which
+   * rows get the Edit/Delete menu (see `isOwnComment`). The server stamps the
+   * real author from the session, and the settled comment replaces the
    * optimistic one, so a stale or missing value here can only ever mislabel a
    * row for the length of one round trip — hence the `"You"` fallback rather
-   * than a refusal to post.
+   * than a refusal to post. Nor is the menu a permission boundary: the edit and
+   * delete routes re-check authorship themselves, so a stale value can at worst
+   * offer a menu whose writes come back 403.
    */
   viewerUsername: string | null;
   /**
@@ -96,6 +122,15 @@ interface CommentsModalProps {
    * server-side — announcing it here would double-count it.
    */
   onCommentPosted?: () => void;
+  /**
+   * Fired once per comment this session actually *deletes* — after the
+   * `DELETE` succeeds, never optimistically — so the chip in `GuideAuthorBar`
+   * drops in step with this header's badge.
+   *
+   * Deliberately not fired for an edit: an edited comment is still one
+   * comment, and nothing about the count changed.
+   */
+  onCommentDeleted?: () => void;
   onClose: () => void;
 }
 
@@ -128,6 +163,15 @@ interface CommentsModalProps {
  * real comment the server answers with lands at the same index once it settles;
  * a failed post simply lets the overlay lapse, which is the rollback.
  *
+ * **Edits and deletes are not optimistic.** A reader's own rows carry a small
+ * Edit/Delete menu. Both wait for the server, apply its answer locally, and
+ * then re-read the thread (`loadComments("refresh")`) to reconcile — a comment
+ * vanishing or changing and then snapping back on a 403 is worse than one
+ * round trip of a spinner. Edit reuses the composer rather than growing an
+ * inline editor per row: one textarea, one length counter, one error slot, one
+ * in-flight guard. Delete has no confirmation step, by request — it is one
+ * short comment, not a whole guide.
+ *
  * **The panel is one size whatever it holds.** Loading, error, empty and a
  * thousand-comment list all render inside a single fixed-height box
  * (`listAreaClass`), so nothing about the dialog's outline changes as the read
@@ -144,21 +188,43 @@ export default function CommentsModal({
   viewerUsername,
   initialCommentCount,
   onCommentPosted,
+  onCommentDeleted,
   onClose,
 }: CommentsModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  /** The open row's trigger + dropdown together, so a `mousedown` on either
+   *  counts as inside. Attached to one row at a time — only one menu is ever
+   *  open. */
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const reduceMotion = useReducedMotion();
   const headingId = useId();
   const draftId = useId();
   const counterId = useId();
   const postErrorId = useId();
+  const menuIdBase = useId();
 
   const [state, setState] = useState<CommentsState>({ status: "loading" });
   const [draft, setDraft] = useState("");
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
+  /** Set while the composer is editing an existing comment rather than writing
+   *  a new one; switches the submit path from `POST` to `PATCH`. */
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [openMenuCommentId, setOpenMenuCommentId] = useState<string | null>(
+    null,
+  );
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(
+    null,
+  );
+  /** A failed delete's message, pinned to the row it failed on. */
+  const [rowError, setRowError] = useState<{
+    commentId: string;
+    message: string;
+  } | null>(null);
   /**
    * When the server said this reader may post again, as a `Date.now()`
    * timestamp — or `null` when nothing is holding them back. Learned only from
@@ -170,10 +236,27 @@ export default function CommentsModal({
     null,
   );
 
-  /** In-flight guard for the POST, and the reason Escape is inert while it is
-   *  set. A ref, not state: a second submit in the same tick must see the flag
-   *  the first one wrote, before any re-render. */
+  /** In-flight guard for the POST — and for an edit's PATCH, which goes through
+   *  the same composer — and the reason Escape is inert while it is set. A ref,
+   *  not state: a second submit in the same tick must see the flag the first
+   *  one wrote, before any re-render. */
   const postingRef = useRef(false);
+  /** The same synchronous guard for a DELETE. */
+  const deletingRef = useRef(false);
+
+  /**
+   * Ids of comments this session created through the composer. A re-read only
+   * keeps a locally-held row the server didn't return if it is in here: that
+   * is the "posted while the GET was open" race the merge exists for. Anything
+   * else missing from a fresh read is genuinely gone — deleted here or
+   * elsewhere — and must not be resurrected from the stale local copy.
+   */
+  const sessionPostedIds = useRef<Set<string>>(new Set());
+  /** Bumped by every `loadComments` call, so only the newest read may write
+   *  `state`: a refresh issued before a delete must not land after it and put
+   *  the deleted row back. */
+  const loadSeq = useRef(0);
+  const rowErrorTimer = useRef<number | undefined>(undefined);
 
   /** Handle for the cooldown’s optional auto-clear, so closing the dialog
    *  mid-window doesn’t leave a timer calling `setPostCooldownUntil` on a gone
@@ -204,7 +287,13 @@ export default function CommentsModal({
   // transition is even scheduled (see the top of `submitComment`).
   const [, startTransition] = useTransition();
 
-  useEffect(() => () => window.clearTimeout(cooldownTimer.current), []);
+  useEffect(
+    () => () => {
+      window.clearTimeout(cooldownTimer.current);
+      window.clearTimeout(rowErrorTimer.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
@@ -223,7 +312,20 @@ export default function CommentsModal({
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        if (!postingRef.current) onClose();
+        // An open row menu is the innermost layer, so Escape peels only that
+        // off — closing the whole dialog from inside a three-item menu would
+        // throw away far more than was asked. Focus goes back to the trigger
+        // rather than falling to `<body>` out of the focus trap.
+        if (openMenuCommentId !== null) {
+          menuTriggerRef.current?.focus();
+          setOpenMenuCommentId(null);
+          return;
+        }
+        // Also inert mid-delete, for the same reason posting blocks it: this
+        // dialog is a `position: fixed` overlay, so unmounting doesn't cancel
+        // the in-flight `DELETE` — it would only throw away the author's view
+        // of its result while the write itself completes regardless.
+        if (!postingRef.current && !deletingRef.current) onClose();
         return;
       }
       if (event.key !== "Tab") return;
@@ -250,82 +352,110 @@ export default function CommentsModal({
 
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  }, [onClose, openMenuCommentId]);
 
+  // Outside-click dismissal for the row menu. Registered only while one is
+  // open, so the dialog pays nothing for it the rest of the time.
   useEffect(() => {
-    // Aborted on unmount so a close mid-flight doesn't leave a response
-    // resolving into a component that is gone; every branch below re-checks
-    // the signal, since `fetch`'s rejection is only the first place an abort
-    // can land.
-    const controller = new AbortController();
+    if (openMenuCommentId === null) return;
+    function onMouseDown(event: MouseEvent) {
+      if (menuRef.current?.contains(event.target as Node)) return;
+      setOpenMenuCommentId(null);
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [openMenuCommentId]);
 
-    async function load() {
+  /**
+   * Reads the thread. `"initial"` is the mount read and owns the error state;
+   * `"refresh"` follows a successful edit or delete, and a failure there leaves
+   * `state` exactly as it is — the write's own answer has already been applied
+   * locally, so the list on screen is correct, and swapping it for "couldn't
+   * load" over a reconciliation miss would be the worse picture.
+   */
+  const loadComments = useCallback(
+    async (mode: "initial" | "refresh", signal?: AbortSignal) => {
+      const seq = ++loadSeq.current;
+      // `fetch`'s rejection is only the first place an abort can land, so this
+      // is re-checked after every await — as is supersession by a newer read.
+      const stale = () => signal?.aborted === true || seq !== loadSeq.current;
+      const fail = () => {
+        if (mode === "initial") setState(keepLocalOnFailure);
+      };
+
       let response: Response;
       try {
         response = await fetch(
           `/api/guides/${encodeURIComponent(guideSlug)}/comments`,
-          { signal: controller.signal },
+          { signal },
         );
       } catch {
-        // `fetch` only rejects on a transport failure or this abort — the
-        // former is a real error, the latter must not touch state.
-        if (!controller.signal.aborted) setState(keepLocalOnFailure);
+        // `fetch` only rejects on a transport failure or an abort — the former
+        // is a real error, the latter must not touch state.
+        if (!stale()) fail();
         return;
       }
 
-      if (controller.signal.aborted) return;
+      if (stale()) return;
 
       // 404 (unknown or unpublished slug) and 500 read the same to someone
       // looking at a guide that is plainly there: the comments didn't load.
       // Nothing they can do differs between the two, so neither does the copy.
       if (!response.ok) {
-        setState(keepLocalOnFailure);
+        fail();
         return;
       }
 
-      let body: unknown;
-      try {
-        body = await response.json();
-      } catch {
-        if (!controller.signal.aborted) setState(keepLocalOnFailure);
-        return;
-      }
-
-      if (controller.signal.aborted) return;
-
-      const comments = parseComments(body);
+      const comments = parseComments(await readJson(response));
+      if (stale()) return;
       if (!comments) {
-        setState(keepLocalOnFailure);
+        fail();
         return;
       }
 
-      // The one race worth handling: someone posts a comment while this GET is
-      // still open, and the response — issued before their comment existed —
-      // doesn't contain it. Merging by id keeps it at the top instead of
-      // silently un-posting it, and de-duplicates if the server did see it.
-      setState((previous) => {
-        if (previous.status !== "loaded" || previous.comments.length === 0) {
-          return { status: "loaded", comments };
-        }
-        const known = new Set(comments.map((entry) => entry.id));
-        const local = previous.comments.filter((entry) => !known.has(entry.id));
-        return { status: "loaded", comments: [...local, ...comments] };
-      });
-    }
+      const posted = sessionPostedIds.current;
+      setState((previous) => mergeSessionPosts(previous, comments, posted));
+    },
+    [guideSlug],
+  );
 
-    void load();
+  useEffect(() => {
+    // Aborted on unmount so a close mid-flight doesn't leave a response
+    // resolving into a component that is gone.
+    const controller = new AbortController();
+    void loadComments("initial", controller.signal);
     return () => controller.abort();
-  }, [guideSlug]);
+  }, [loadComments]);
+
+  // A menu opened on the last row hangs below the bottom of the scrolling
+  // list; bring it into view rather than leaving half of it to be found.
+  useEffect(() => {
+    if (openMenuCommentId === null) return;
+    menuRef.current?.scrollIntoView({
+      block: "nearest",
+      behavior: reduceMotion ? "auto" : "smooth",
+    });
+  }, [openMenuCommentId, reduceMotion]);
 
   const trimmedLength = draft.trim().length;
   const overLimit = trimmedLength > MAX_COMMENT_LENGTH;
   // A plain time comparison rather than a stored boolean, so a cooldown with no
   // auto-clear timer behind it still stops mattering the moment it lapses.
   const coolingDown = isCoolingDown(postCooldownUntil);
+  const editing = editingCommentId !== null;
   // Only the submit button is gated. The textarea stays fully editable through a
   // cooldown — waiting out a rate limit is exactly when someone rereads and
-  // edits what they wrote.
-  const canSubmit = trimmedLength > 0 && !overLimit && !posting && !coolingDown;
+  // edits what they wrote. The cooldown is the *create* limiter's, so it
+  // doesn't hold back an edit; a delete in flight does hold back both, keeping
+  // this dialog to one write at a time (the same reason the row menus go inert
+  // while the composer is busy).
+  const canSubmit =
+    trimmedLength > 0 &&
+    !overLimit &&
+    !posting &&
+    deletingCommentId === null &&
+    (editing || !coolingDown);
+  const menusDisabled = posting || deletingCommentId !== null;
 
   // Until the read has loaded, `optimisticComments` holds only this session's
   // own pending posts (its base is `[]`), so adding it to the seeded count
@@ -352,7 +482,14 @@ export default function CommentsModal({
   function submitComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const comment = draft.trim();
-    if (postingRef.current || comment.length === 0 || overLimit) return;
+    if (postingRef.current || deletingRef.current) return;
+    if (comment.length === 0 || overLimit) return;
+    if (editingCommentId !== null) {
+      // An edit is not a new row, so none of the optimistic-prepend machinery
+      // below applies to it.
+      void submitEdit(editingCommentId, comment);
+      return;
+    }
     if (isCoolingDown(postCooldownUntil)) return;
 
     postingRef.current = true;
@@ -364,7 +501,7 @@ export default function CommentsModal({
       // submit. Everything below only decides whether it *stays* — by being
       // committed into `state` — or lapses with the transition.
       addOptimisticComment({
-        id: `optimistic-${crypto.randomUUID()}`,
+        id: `${OPTIMISTIC_ID_PREFIX}${crypto.randomUUID()}`,
         username: viewerUsername ?? "You",
         comment,
         createdAt: new Date().toISOString(),
@@ -436,6 +573,8 @@ export default function CommentsModal({
         return;
       }
 
+      sessionPostedIds.current.add(created.id);
+
       // Wrapped in its own `startTransition` because it runs after an `await`:
       // React only treats updates as part of the action when they are marked,
       // and an unmarked one would commit urgently — rendering the real comment
@@ -466,6 +605,157 @@ export default function CommentsModal({
     setPosting(false);
   }
 
+  /** Same composer, same guard, same error slot as a post — only the request
+   *  and what success does to the list differ. */
+  async function submitEdit(commentId: string, comment: string) {
+    postingRef.current = true;
+    setPosting(true);
+    setPostError(null);
+
+    let response: Response;
+    try {
+      response = await fetch(commentUrl(guideSlug, commentId), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment }),
+      });
+    } catch {
+      finishPosting();
+      setPostError(
+        "We couldn’t reach the server, so your edit wasn’t saved. Check your connection and try again.",
+      );
+      return;
+    }
+
+    const body = await readJson(response);
+
+    if (!response.ok) {
+      finishPosting();
+      // The draft and edit mode both survive, for the same reason a failed
+      // post keeps its draft: the textarea holds the only copy of the edit.
+      setPostError(postFailureMessage(response.status, body, "edit"));
+      return;
+    }
+
+    finishPosting();
+    setEditingCommentId(null);
+    setDraft("");
+
+    // Applied before the refresh, so the edit shows at once and survives a
+    // refresh that fails. A 200 we can't parse just waits for the re-read.
+    const updated = parseComment(body);
+    if (updated) {
+      setState((previous) =>
+        previous.status === "loaded"
+          ? {
+              status: "loaded",
+              comments: previous.comments.map((entry) =>
+                entry.id === updated.id ? updated : entry,
+              ),
+            }
+          : previous,
+      );
+    }
+    void loadComments("refresh");
+  }
+
+  function startEditing(comment: GuideComment) {
+    setOpenMenuCommentId(null);
+    setEditingCommentId(comment.id);
+    // Replaces whatever was in the box. An unsent new comment is lost here, but
+    // the alternative — two drafts behind one textarea — is a mode nobody
+    // could see.
+    setDraft(comment.comment);
+    setPostError(null);
+    // After the commit, so the textarea already holds the seeded text and the
+    // caret can land at its end rather than at the start of someone's paragraph.
+    requestAnimationFrame(() => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    });
+  }
+
+  function cancelEditing() {
+    setEditingCommentId(null);
+    setDraft("");
+    setPostError(null);
+  }
+
+  function showRowError(commentId: string, message: string) {
+    setRowError({ commentId, message });
+    window.clearTimeout(rowErrorTimer.current);
+    rowErrorTimer.current = window.setTimeout(
+      () => setRowError(null),
+      ROW_ERROR_MS,
+    );
+  }
+
+  function finishDeleting() {
+    deletingRef.current = false;
+    setDeletingCommentId(null);
+  }
+
+  async function deleteComment(commentId: string) {
+    if (deletingRef.current || postingRef.current) return;
+    deletingRef.current = true;
+
+    // The menu item that was clicked is about to unmount; moving focus to the
+    // row's trigger first (still attached — this runs before the re-render)
+    // keeps it inside the trap instead of dropping to `<body>`.
+    menuTriggerRef.current?.focus();
+    setOpenMenuCommentId(null);
+    setDeletingCommentId(commentId);
+    window.clearTimeout(rowErrorTimer.current);
+    setRowError(null);
+
+    let response: Response;
+    try {
+      response = await fetch(commentUrl(guideSlug, commentId), {
+        method: "DELETE",
+      });
+    } catch {
+      finishDeleting();
+      showRowError(
+        commentId,
+        "We couldn’t reach the server, so the comment wasn’t deleted. Check your connection and try again.",
+      );
+      return;
+    }
+
+    if (!response.ok) {
+      finishDeleting();
+      showRowError(commentId, deleteFailureMessage(response.status));
+      return;
+    }
+
+    finishDeleting();
+    sessionPostedIds.current.delete(commentId);
+    setState((previous) =>
+      previous.status === "loaded"
+        ? {
+            status: "loaded",
+            comments: previous.comments.filter(
+              (entry) => entry.id !== commentId,
+            ),
+          }
+        : previous,
+    );
+    // Deleting the very comment the composer is editing ends that edit — a
+    // later save would only 404 against a row that no longer exists.
+    if (editingCommentId === commentId) cancelEditing();
+    onCommentDeleted?.();
+
+    // The trigger that held focus left with its row. The list itself takes it
+    // (it is `tabIndex={-1}`, so this adds no tab stop); Close is the fallback
+    // once the last comment is gone and the list has unmounted.
+    requestAnimationFrame(() => {
+      (listRef.current ?? closeRef.current)?.focus({ preventScroll: true });
+    });
+    void loadComments("refresh");
+  }
+
   /** Arms the local lock from what the server actually said. A body we couldn’t
    *  read a usable number out of arms nothing — `postFailureMessage` has already
    *  said so in words, and a cooldown of unknown length is worse than one more
@@ -474,7 +764,7 @@ export default function CommentsModal({
     if (retryAfterSeconds === null) return;
 
     const holdMs = retryAfterSeconds * 1000;
-    setPostCooldownUntil(Date.now() + holdMs);
+    setPostCooldownUntil(deadlineAfter(holdMs));
     window.clearTimeout(cooldownTimer.current);
     if (holdMs <= COOLDOWN_AUTOCLEAR_MAX_MS) {
       cooldownTimer.current = window.setTimeout(
@@ -565,26 +855,83 @@ export default function CommentsModal({
             posting never depended on the read succeeding. */}
         <div className={`mt-4 ${listAreaClass}`}>
           {optimisticComments.length > 0 ? (
-            <ul ref={listRef} className="h-full space-y-2 overflow-y-auto pr-1">
+            // `tabIndex={-1}` so a delete can park focus here once the row
+            // holding it is gone, without adding a tab stop (`FOCUSABLE`
+            // excludes `-1`).
+            <ul
+              ref={listRef}
+              tabIndex={-1}
+              className="h-full space-y-2 overflow-y-auto pr-1 outline-none"
+            >
               {optimisticComments.map((comment) => {
                 const posted = formatPostedAt(comment.createdAt);
+                const own = isOwnComment(
+                  comment,
+                  isAuthenticated,
+                  viewerUsername,
+                );
+                const menuOpen = openMenuCommentId === comment.id;
+                const deleting = deletingCommentId === comment.id;
+                const error =
+                  rowError?.commentId === comment.id ? rowError.message : null;
                 return (
                   <li
                     key={comment.id}
-                    className="rounded-xl bg-surface-2 px-3.5 py-3 lg:px-4 lg:py-3.5"
+                    aria-busy={deleting || undefined}
+                    // `group` is what lets the menu trigger appear on hover of
+                    // the whole row and on focus anywhere inside it. The ring
+                    // marks the row the composer is currently editing, so the
+                    // link between the two isn't left to memory.
+                    className={`group rounded-xl bg-surface-2 px-3.5 py-3 lg:px-4 lg:py-3.5 ${
+                      editingCommentId === comment.id
+                        ? "ring-1 ring-brand-500/40"
+                        : ""
+                    } ${deleting ? "opacity-60" : ""}`}
                   >
-                    <div className="flex items-baseline justify-between gap-3">
+                    <div className="flex items-start justify-between gap-3">
                       <span className="truncate text-[13.5px] font-bold text-ink lg:text-[15px]">
                         {comment.username}
                       </span>
-                      {posted && (
-                        <time
-                          dateTime={comment.createdAt}
-                          className="flex-none text-[12px] text-[#8b98a1] lg:text-[13px]"
-                        >
-                          {posted}
-                        </time>
-                      )}
+                      {/* `relative`, not a flex column: the menu trigger is
+                          `absolute` so it sits below the date without adding
+                          to this corner's height while it's invisible at
+                          rest — a flex column reserves the trigger's box
+                          whether or not `opacity` shows it, which is exactly
+                          the extra gap over every row's comment text this was
+                          leaving behind. */}
+                      <div className="relative flex-none">
+                        {posted && (
+                          <time
+                            dateTime={comment.createdAt}
+                            className="block text-[12px] text-[#8b98a1] lg:text-[13px]"
+                          >
+                            {posted}
+                          </time>
+                        )}
+                        {own && (
+                          <div className="absolute top-full right-0 pt-1">
+                            <CommentRowMenu
+                              menuId={`${menuIdBase}-menu-${comment.id}`}
+                              open={menuOpen}
+                              deleting={deleting}
+                              disabled={menusDisabled}
+                              containerRef={menuOpen ? menuRef : undefined}
+                              triggerRef={
+                                menuOpen || deleting
+                                  ? menuTriggerRef
+                                  : undefined
+                              }
+                              onToggle={() =>
+                                setOpenMenuCommentId((current) =>
+                                  current === comment.id ? null : comment.id,
+                                )
+                              }
+                              onEdit={() => startEditing(comment)}
+                              onDelete={() => void deleteComment(comment.id)}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
                     {/* `break-words` so a pasted URL can't widen the panel past
                         its `max-w`, `whitespace-pre-line` so the author's own
@@ -592,6 +939,14 @@ export default function CommentsModal({
                     <p className="mt-1.5 break-words whitespace-pre-line text-[13.5px] leading-[1.55] text-ink-soft lg:text-[15px] lg:leading-[1.6]">
                       {comment.comment}
                     </p>
+                    {error && (
+                      <p
+                        role="alert"
+                        className="mt-2.5 rounded-lg border border-danger/25 bg-danger/6 px-3 py-2 text-[12.5px] leading-[1.5] text-ink-soft lg:text-[13.5px]"
+                      >
+                        {error}
+                      </p>
+                    )}
                   </li>
                 );
               })}
@@ -645,7 +1000,7 @@ export default function CommentsModal({
                 htmlFor={draftId}
                 className="text-[13px] font-bold text-ink lg:text-[14.5px]"
               >
-                Add a comment
+                {editing ? "Edit your comment" : "Add a comment"}
               </label>
               <span
                 id={counterId}
@@ -658,6 +1013,7 @@ export default function CommentsModal({
             </div>
 
             <textarea
+              ref={textareaRef}
               id={draftId}
               rows={3}
               value={draft}
@@ -690,7 +1046,20 @@ export default function CommentsModal({
               </p>
             )}
 
-            <div className="mt-3 flex justify-end">
+            <div className="mt-3 flex items-center justify-end gap-4">
+              {/* The way out of edit mode without retyping the original or
+                  saving something half-changed. A plain text control: it is
+                  the secondary action and shouldn't compete with the pill. */}
+              {editing && (
+                <button
+                  type="button"
+                  onClick={cancelEditing}
+                  disabled={posting}
+                  className="cursor-pointer text-[13.5px] font-bold text-[#68767f] underline-offset-2 outline-offset-2 outline-brand-500 hover:text-brand-700 hover:underline focus-visible:outline-2 disabled:cursor-not-allowed disabled:opacity-55 lg:text-[14.5px]"
+                >
+                  Cancel
+                </button>
+              )}
               <button
                 type="submit"
                 disabled={!canSubmit}
@@ -700,7 +1069,13 @@ export default function CommentsModal({
                 }`}
               >
                 {posting && <SpinnerIcon size={15} />}
-                {posting ? "Posting…" : "Post comment"}
+                {editing
+                  ? posting
+                    ? "Saving…"
+                    : "Edit comment"
+                  : posting
+                    ? "Posting…"
+                    : "Post comment"}
               </button>
             </div>
           </form>
@@ -747,6 +1122,165 @@ function CommentSkeletonRow({
 }
 
 /**
+ * The three-dot trigger and its Edit/Delete dropdown for one of the reader's
+ * own comments.
+ *
+ * A disclosure (`aria-expanded` + `aria-controls` on a plain button, two plain
+ * buttons inside), deliberately not `role="menu"`: an ARIA menu promises arrow-
+ * key roving focus and typeahead, and two items don't earn that machinery.
+ * The dropdown follows the trigger in DOM order, so Tab walks straight into it.
+ *
+ * Hidden at rest and revealed by the row's `group-hover` *or*
+ * `group-focus-within` — so keyboard focus landing on the trigger reveals it
+ * too — and always shown on devices with no hover at all, where a hover-only
+ * control would simply not exist.
+ */
+function CommentRowMenu({
+  menuId,
+  open,
+  deleting,
+  disabled,
+  containerRef,
+  triggerRef,
+  onToggle,
+  onEdit,
+  onDelete,
+}: {
+  menuId: string;
+  open: boolean;
+  /** This row's DELETE is in flight: the trigger becomes a spinner. */
+  deleting: boolean;
+  /** Some other write is in flight; the dialog runs one at a time. */
+  disabled: boolean;
+  containerRef?: RefObject<HTMLDivElement | null>;
+  triggerRef?: RefObject<HTMLButtonElement | null>;
+  onToggle: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const itemClass =
+    "flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold text-ink outline-offset-[-2px] focus-visible:outline-2 lg:text-[14px]";
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={disabled ? undefined : onToggle}
+        // `aria-disabled`, not `disabled`: this button is where focus is parked
+        // while its own row's delete is in flight, and a disabled control would
+        // drop that focus out of the dialog's trap.
+        aria-disabled={disabled || undefined}
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        aria-label={deleting ? "Deleting your comment" : "Your comment options"}
+        className={`-mr-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full text-[#68767f] outline-offset-2 outline-brand-500 transition-opacity focus-visible:outline-2 ${
+          open || deleting
+            ? "bg-[#eaf3f9] text-brand-700 opacity-100"
+            : "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+        } ${
+          disabled
+            ? "cursor-not-allowed"
+            : "cursor-pointer hover:bg-[#eaf3f9] hover:text-brand-700"
+        }`}
+      >
+        {deleting ? <SpinnerIcon size={14} /> : <MoreIcon size={16} />}
+      </button>
+
+      {open && (
+        <div
+          id={menuId}
+          // White on the row's `surface-2`, with the same drop shadow the like
+          // chip's bubbles use, so it reads as lifted off the row.
+          className="absolute top-[calc(100%+4px)] right-0 z-10 min-w-[140px] rounded-xl border border-line bg-white p-1 shadow-[0_12px_24px_-14px_rgba(11,36,56,.9)]"
+        >
+          <button
+            type="button"
+            onClick={onEdit}
+            className={`${itemClass} outline-brand-500 hover:bg-surface-2 hover:text-brand-700 focus-visible:bg-surface-2`}
+          >
+            <EditIcon size={15} />
+            Edit
+          </button>
+          {/* Quiet at rest and `danger` only on hover/focus — the same
+              reasoning as the guide's own Delete chip in
+              `GuideOwnerActions`. */}
+          <button
+            type="button"
+            onClick={onDelete}
+            className={`${itemClass} outline-danger hover:bg-danger/8 hover:text-danger focus-visible:bg-danger/8 focus-visible:text-danger`}
+          >
+            <TrashIcon size={15} />
+            Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Whether a row belongs to the signed-in reader. A username comparison is
+ * sufficient because usernames are unique in this app, so the wire needs no
+ * author id. An optimistic row is never "own" for this purpose: it has no
+ * server-side id yet for an edit or delete to address.
+ */
+function isOwnComment(
+  comment: GuideComment,
+  isAuthenticated: boolean,
+  viewerUsername: string | null,
+): boolean {
+  return (
+    isAuthenticated &&
+    viewerUsername !== null &&
+    comment.username === viewerUsername &&
+    !comment.id.startsWith(OPTIMISTIC_ID_PREFIX)
+  );
+}
+
+function commentUrl(guideSlug: string, commentId: string): string {
+  return `/api/guides/${encodeURIComponent(guideSlug)}/comments/${encodeURIComponent(commentId)}`;
+}
+
+/**
+ * Folds a fresh read into what is on screen. The one race worth handling:
+ * someone posts a comment while the GET is still open, and the response —
+ * issued before their comment existed — doesn't contain it. Keeping it at the
+ * top instead of silently un-posting it, and de-duplicating by id if the
+ * server did see it. Only ids in `sessionPosted` qualify: any other row the
+ * server no longer returns was deleted, and keeping it would undo the delete.
+ */
+function mergeSessionPosts(
+  previous: CommentsState,
+  fetched: GuideComment[],
+  sessionPosted: ReadonlySet<string>,
+): CommentsState {
+  if (previous.status !== "loaded" || previous.comments.length === 0) {
+    return { status: "loaded", comments: fetched };
+  }
+  const known = new Set(fetched.map((entry) => entry.id));
+  const local = previous.comments.filter(
+    (entry) => !known.has(entry.id) && sessionPosted.has(entry.id),
+  );
+  return { status: "loaded", comments: [...local, ...fetched] };
+}
+
+/** A failed delete as prose. No 400 or 429 branch: the route takes no body
+ *  and isn't rate-limited. */
+function deleteFailureMessage(status: number): string {
+  if (status === 401) {
+    return "You’re signed out, so the comment wasn’t deleted. Sign in and try again.";
+  }
+  if (status === 403) {
+    return "You can only delete your own comments.";
+  }
+  if (status === 404) {
+    return "That comment isn’t there any more — it may already have been deleted.";
+  }
+  return "We couldn’t delete that comment. Please try again in a moment.";
+}
+
+/**
  * A failed read must not throw away a comment this session just posted — that
  * would look exactly like the comment vanishing. Anything else falls to the
  * error state as before.
@@ -767,19 +1301,41 @@ async function readJson(response: Response): Promise<unknown> {
  * Status to prose, in `DeleteGuideDialog['failureFor']`'s spirit — never a bare
  * code. A 400 is the only one that can say something specific about *this*
  * comment, so its own field message wins where the route sent one.
+ *
+ * `intent` covers the composer's two jobs: a new comment (`POST`) and an edit
+ * of an existing one (`PATCH`), whose failure shapes match but for the 403 —
+ * which the UI can't actually provoke, since only the reader's own rows offer
+ * Edit, but which the route can still answer if the session changed underneath.
  */
-function postFailureMessage(status: number, body: unknown): string {
+function postFailureMessage(
+  status: number,
+  body: unknown,
+  intent: "post" | "edit" = "post",
+): string {
+  const edit = intent === "edit";
   if (status === 400) {
     return (
       fieldErrorOf(body, "comment") ??
-      "That comment can’t be posted as written. Please edit it and try again."
+      (edit
+        ? "That edit can’t be saved as written. Please change it and try again."
+        : "That comment can’t be posted as written. Please edit it and try again.")
     );
   }
   if (status === 401) {
-    return "You’re signed out, so your comment wasn’t posted. Sign in and try again.";
+    return edit
+      ? "You’re signed out, so your edit wasn’t saved. Sign in and try again."
+      : "You’re signed out, so your comment wasn’t posted. Sign in and try again.";
+  }
+  if (status === 403) {
+    return "You can only edit your own comments.";
   }
   if (status === 404) {
-    return "This guide isn’t there any more, so your comment wasn’t posted.";
+    return edit
+      ? "That comment isn’t there any more, so your edit wasn’t saved."
+      : "This guide isn’t there any more, so your comment wasn’t posted.";
+  }
+  if (edit) {
+    return "We couldn’t save your edit. Please try again in a moment.";
   }
   if (status === 429) {
     // Deliberately not through `fieldErrorOf`: the rate-limit body carries no
@@ -925,4 +1481,14 @@ function formatPostedAt(iso: string): string | null {
  */
 function isCoolingDown(until: number | null): boolean {
   return until !== null && until > Date.now();
+}
+
+/**
+ * `Date.now() + holdMs`, at module scope for `isCoolingDown`'s reason. Only
+ * ever called from `startPostCooldown`, i.e. from a submit handler — but once
+ * the edit/delete paths were added, `react-hooks/purity` stopped being able to
+ * prove that and flagged the inline clock read as reachable from render.
+ */
+function deadlineAfter(holdMs: number): number {
+  return Date.now() + holdMs;
 }

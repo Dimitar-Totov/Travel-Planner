@@ -269,6 +269,36 @@ export function TrashIcon(props: IconProps) {
   );
 }
 
+/** Pencil-on-a-line — every "edit the thing you're looking at" affordance
+ *  (a guide's Edit pill, a comment's Edit menu row). */
+export function EditIcon(props: IconProps) {
+  return (
+    <Stroke strokeWidth={2} {...props}>
+      <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z" />
+      <path d="M14.5 6.5l3 3" />
+    </Stroke>
+  );
+}
+
+/** Three stacked dots — the trigger for a row's overflow menu. Filled rather
+ *  than stroked, so the dots stay legible at the small sizes it's used at. */
+export function MoreIcon({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      {...rest}
+    >
+      <circle cx="12" cy="5" r="1.75" />
+      <circle cx="12" cy="12" r="1.75" />
+      <circle cx="12" cy="19" r="1.75" />
+    </svg>
+  );
+}
+
 export function CommentIcon(props: IconProps) {
   return (
     <Stroke {...props}>
