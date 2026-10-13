@@ -76,13 +76,25 @@ export default async function GuideDetailsPage(props: GuideDetailProps) {
     notFound();
   }
 
-  const { guide, itinerary, stopImages, authorId } = detail;
+  const {
+    guide,
+    itinerary,
+    stopImages,
+    authorId,
+    likeCount,
+    likedUserIds,
+    commentCount,
+  } = detail;
 
   // Both halves matter. `authorId` is `null` when the guide's author reference
   // didn't resolve (a deleted user), and `session.user.id` is absent for an
   // anonymous reader — comparing without checking either would make
   // `undefined === null` style near-misses into ownership.
   const isOwner = Boolean(session?.user?.id && session.user.id === authorId);
+  const isAuthenticated = Boolean(session?.user?.id);
+  const likedByViewer = Boolean(
+    session?.user?.id && likedUserIds.includes(session.user.id),
+  );
 
   return (
     <div className="flex min-h-screen flex-col bg-white lg:h-screen lg:overflow-hidden">
@@ -94,6 +106,10 @@ export default async function GuideDetailsPage(props: GuideDetailProps) {
         heroImage={heroImageFor(guide)}
         stopCount={countStops(itinerary)}
         stopImages={stopImages}
+        likeCount={likeCount}
+        commentCount={commentCount}
+        likedByViewer={likedByViewer}
+        isAuthenticated={isAuthenticated}
         ownerActions={
           isOwner ? (
             <GuideOwnerActions slug={guide.slug} title={guide.title} />

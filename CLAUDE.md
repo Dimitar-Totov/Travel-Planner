@@ -692,6 +692,69 @@ and an admin has no override here.
   reachable via the API or the seed script), and no `GET /api/guides/[guideId]` — the edit page
   calls `services/guides.ts` directly, the same way every other page does.
 
+### Likes and comments (`src/models/Like.ts`, `src/models/Comment.ts`, `src/app/api/guides/[guideId]/like/`, `src/app/api/guides/[guideId]/comments/`)
+
+`POST /api/guides/[guideId]/like` toggles a signed-in user's like on a published guide
+(`Like` — one document per guide, membership array); `GET`/`POST
+/api/guides/[guideId]/comments` read/write a published guide's comment thread (`Comment` —
+one document per comment). Both `POST`s are auth-gated (`await auth()`, 401 on no session);
+`GET` on comments stays anonymous and unlimited, mirroring the guide page's own
+anonymous-friendly access.
+
+**Rate limiting.** Beyond the client's in-flight guard (which a script hitting the routes
+directly never sees), both write routes are capped server-side against the `ratelimits`
+collection (`src/models/RateLimit.ts`, `src/services/rateLimit.ts`) — fixed-window counters,
+TTL-reaped by Mongo, no Redis or in-process store anywhere in this stack. An in-process
+limiter would be wrong here for the same reason `lib/mongodb.ts` caches its client on
+`globalThis`: a warm serverless invocation doesn't guarantee one persistent Node process, so
+counting in memory would be per-instance and silently wrong.
+
+Fixed window, not sliding: a sliding window needs either one document per hit or a growing
+per-key timestamp array — exactly what an attacker would grow. A fixed window is one small
+document per (key, window) regardless of traffic. The accepted trade-off is that up to
+roughly 2x the limit can pass across a window boundary; every policy below is sized at
+2-4x a plausible human ceiling, so the boundary artifact still leaves real abuse far short
+of unlimited.
+
+Three policies, all in `services/rateLimit.ts`:
+
+- `LIKE_GLOBAL_LIMIT` — 30 likes/minute, across every guide, per user.
+- `LIKE_PER_GUIDE_LIMIT` — 6 likes/minute, against one specific guide, per user.
+- `COMMENT_BURST_LIMIT` — 5 comments per 10 minutes, per user, across every guide.
+  **Deliberately burst-only** — there is no companion daily/hourly tier. A second tier is
+  a second bucket to check and order correctly for a limit this app doesn't need; the
+  actual threat model is a script hammering the endpoint, which the burst window alone
+  already stops.
+
+The like route checks `LIKE_GLOBAL_LIMIT` then `LIKE_PER_GUIDE_LIMIT`, in that order,
+**sequentially, never `Promise.all`'d** — checking both at once means a request already
+blocked by the global bucket would still spend its per-guide budget on every hammered
+attempt, a silent escalation. Both checks run before the guide is even looked up: this
+caps the cost of hammering a slug that doesn't exist or isn't published, and can't leak
+slug-existence to an unauthenticated caller since the 401 check already turns those away
+first. The comment route checks `COMMENT_BURST_LIMIT` before the request body is even
+parsed, for the same reason — a comment's cost is attention across the whole site, so the
+bucket is keyed on the user globally, not per-guide (a per-guide-only limit would let
+someone spam-post to every guide in turn).
+
+A denied request gets `429 { error, retryAfterSeconds }` — no `Retry-After` header, since
+every other contract in this app lives in the JSON body, not response headers.
+`retryAfterSeconds` only ever shrinks toward the window's fixed end as the window elapses;
+it never grows, and **there is no escalation or lockout logic anywhere in this layer, by
+design** — a fixed window that closes is the entire mechanism, not a first strike in a
+bigger penalty scheme.
+
+`consumeRateLimit` **fails open** on any error other than the one expected upsert race
+(two concurrent first-hits of a brand-new window both racing to insert, caught by its
+E11000 code and retried once — the same "unique index + catch the collision" pattern
+`POST /api/users`/`POST /api/guides` use for email/slug collisions). An unreachable
+database logs once and returns `{ allowed: true }`: the write being guarded hits the same
+database moments later and fails with its own 500 regardless, so failing open hands an
+attacker nothing extra, while failing closed would block a legitimate user for an
+infrastructure fault that isn't theirs. Same philosophy `rotateRefreshToken`
+(`src/services/refreshTokens.ts`) already documents for a database blip on an unrelated
+query.
+
 ### Component layout (`src/components/`)
 
 Six groups, each consumed by a specific layer above:
