@@ -169,7 +169,7 @@ async function upsertAndIncrement(
   const doc = await RateLimit.findOneAndUpdate(
     { key, windowStart },
     { $inc: { count: 1 }, $setOnInsert: { expiresAt } },
-    { upsert: true, new: true },
+    { upsert: true, returnDocument: "after" },
   )
     .select("count")
     .lean<{ count: number } | null>();

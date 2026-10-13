@@ -172,7 +172,7 @@ export async function rotateRefreshToken(
       expiresAt: { $gt: now },
     },
     { $set: { rotatedAt: now, successorToken, successorExpiresAt } },
-    { new: true },
+    { returnDocument: "after" },
   );
 
   if (claimed) {
