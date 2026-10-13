@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useOptimistic,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { CloseIcon, CommentIcon, SpinnerIcon } from "@/components/icons";
@@ -63,6 +70,23 @@ interface CommentsModalProps {
    */
   isAuthenticated: boolean;
   /**
+   * The signed-in reader's own username, threaded down the same way
+   * `isAuthenticated` is. Used for one thing: the name on this reader's
+   * optimistic comment while its `POST` is still in flight. The server stamps
+   * the real author from the session, and the settled comment replaces the
+   * optimistic one, so a stale or missing value here can only ever mislabel a
+   * row for the length of one round trip — hence the `"You"` fallback rather
+   * than a refusal to post.
+   */
+  viewerUsername: string | null;
+  /**
+   * The count the opening chip in `GuideAuthorBar` is showing right now —
+   * its local `comments` state, which already includes this session's own
+   * posts. Seeds the header badge while the `GET` is in flight, so the header
+   * opens at its final shape instead of growing a badge a beat later.
+   */
+  initialCommentCount: number;
+  /**
    * Fired once per comment this session actually *creates*, so the count in
    * `GuideAuthorBar`'s chip can follow the badge in this header instead of
    * going stale until the next full load.
@@ -99,7 +123,15 @@ interface CommentsModalProps {
  * The list arrives newest-first from the server and is rendered in exactly that
  * order — sorting it again here would be a second, drifting definition of
  * "newest". A comment posted from the composer is prepended locally rather than
- * refetched, which is why the two must agree on that ordering.
+ * refetched, which is why the two must agree on that ordering. It is prepended
+ * *optimistically* (`useOptimistic`), the moment the reader submits, and the
+ * real comment the server answers with lands at the same index once it settles;
+ * a failed post simply lets the overlay lapse, which is the rollback.
+ *
+ * **The panel is one size whatever it holds.** Loading, error, empty and a
+ * thousand-comment list all render inside a single fixed-height box
+ * (`listAreaClass`), so nothing about the dialog's outline changes as the read
+ * resolves — the content swaps, the frame doesn't.
  *
  * **An anonymous reader gets no composer at all** — not a disabled one, not a
  * "sign in to comment" placeholder. The like button's own tooltip already
@@ -109,6 +141,8 @@ interface CommentsModalProps {
 export default function CommentsModal({
   guideSlug,
   isAuthenticated,
+  viewerUsername,
+  initialCommentCount,
   onCommentPosted,
   onClose,
 }: CommentsModalProps) {
@@ -147,6 +181,28 @@ export default function CommentsModal({
    *  above and below already follow. Only ever set for a short window (see
    *  `COOLDOWN_AUTOCLEAR_MAX_MS`). */
   const cooldownTimer = useRef<number | undefined>(undefined);
+
+  /**
+   * What the list actually renders: the true `state` plus any comment this
+   * session has submitted but the server hasn't answered for yet.
+   *
+   * The base is `[]` until the read has loaded, so before then the overlay
+   * holds *only* this reader's own pending posts — which is what lets the
+   * header count add it to `initialCommentCount` without ever double-counting.
+   * The overlay lives exactly as long as the transition in `submitComment`: a
+   * success commits the real comment into `state` and the overlay collapses
+   * into it, a failure commits nothing and the overlay simply lapses — the
+   * rollback is the hook's, not a hand-written `setState` in every branch.
+   */
+  const baseComments = state.status === "loaded" ? state.comments : [];
+  const [optimisticComments, addOptimisticComment] = useOptimistic<
+    GuideComment[],
+    GuideComment
+  >(baseComments, (current, entry) => [entry, ...current]);
+  // `isPending` is deliberately unused: `posting`/`postingRef` already are the
+  // busy flag, and the ref is what has to be checked synchronously before a
+  // transition is even scheduled (see the top of `submitComment`).
+  const [, startTransition] = useTransition();
 
   useEffect(() => () => window.clearTimeout(cooldownTimer.current), []);
 
@@ -271,7 +327,29 @@ export default function CommentsModal({
   // edits what they wrote.
   const canSubmit = trimmedLength > 0 && !overLimit && !posting && !coolingDown;
 
-  async function submitComment(event: FormEvent<HTMLFormElement>) {
+  // Until the read has loaded, `optimisticComments` holds only this session's
+  // own pending posts (its base is `[]`), so adding it to the seeded count
+  // can't double-count anything. Once loaded, the list itself is the truth.
+  const headerCount =
+    state.status === "loaded"
+      ? optimisticComments.length
+      : initialCommentCount + optimisticComments.length;
+
+  /**
+   * One height — not a max-height — for everything that can occupy the list's
+   * slot, so the dialog is the same size for 0, 1 or 1000 comments and doesn't
+   * change shape as the read resolves. Bounded, with its own scroll inside, so
+   * a long thread can't push Close past the viewport; tighter when the
+   * composer is present, so the box the reader came to type in doesn't sit
+   * below the fold. Grows a little at `lg`, with the panel and its text.
+   */
+  const listAreaClass = isAuthenticated
+    ? "h-[min(42vh,320px)] lg:h-[min(40vh,380px)]"
+    : "h-[min(58vh,440px)] lg:h-[min(56vh,520px)]";
+
+  // No longer `async` itself: the guards below run synchronously in the submit
+  // event, and everything that awaits lives inside the transition it schedules.
+  function submitComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const comment = draft.trim();
     if (postingRef.current || comment.length === 0 || overLimit) return;
@@ -281,78 +359,105 @@ export default function CommentsModal({
     setPosting(true);
     setPostError(null);
 
-    let response: Response;
-    try {
-      response = await fetch(
-        `/api/guides/${encodeURIComponent(guideSlug)}/comments`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ comment }),
-        },
-      );
-    } catch {
-      // `fetch` only rejects on a transport failure, so nothing was written and
-      // the draft below is still the only copy of what they wrote.
-      finishPosting();
-      setPostError(
-        "We couldn’t reach the server, so your comment wasn’t posted. Check your connection and try again.",
-      );
-      return;
-    }
-
-    const body = await readJson(response);
-
-    if (!response.ok) {
-      finishPosting();
-      setPostError(postFailureMessage(response.status, body));
-      if (response.status === 429) startPostCooldown(parseRetryAfter(body));
-      // Returning *before* `setDraft("")` below is what leaves the draft in the
-      // box on every failure path. Load-bearing for the 429 case in particular:
-      // nothing was written, so this textarea holds the only copy of what they
-      // wrote, and they are being asked to wait and send exactly that again.
-      return;
-    }
-
-    finishPosting();
-
-    // Posted either way past this point, so the draft is cleared either way —
-    // leaving it in the box invites a duplicate of a comment that already
-    // exists.
-    setDraft("");
-
-    const created = parseComment(body);
-    if (!created) {
-      setPostError(
-        "Your comment was posted, but we couldn’t show it here. Reopen the comments to see it.",
-      );
-      return;
-    }
-
-    setState((previous) =>
-      previous.status === "loaded"
-        ? { status: "loaded", comments: [created, ...previous.comments] }
-        : // Posting doesn't depend on the list having loaded: if the GET failed
-          // or is still open, the new comment is still the one thing we know
-          // for certain is there, so it becomes the list.
-          { status: "loaded", comments: [created] },
-    );
-
-    // Here and nowhere else: past the `!created` guard, so a post whose response
-    // couldn't be parsed doesn't bump a count it can't show a row for, and
-    // after the only branch that adds to the list, so the caller's number moves
-    // in step with this one.
-    onCommentPosted?.();
-
-    // The list is newest-first, so the comment they just wrote is at the top of
-    // a container they may have scrolled away from. Scrolling it back is the
-    // expected acknowledgement — and it only ever runs as the direct result of
-    // their own submit, never while they're reading.
-    requestAnimationFrame(() => {
-      listRef.current?.scrollTo({
-        top: 0,
-        behavior: reduceMotion ? "auto" : "smooth",
+    startTransition(async () => {
+      // First, before the request: the comment is on screen the instant they
+      // submit. Everything below only decides whether it *stays* — by being
+      // committed into `state` — or lapses with the transition.
+      addOptimisticComment({
+        id: `optimistic-${crypto.randomUUID()}`,
+        username: viewerUsername ?? "You",
+        comment,
+        createdAt: new Date().toISOString(),
       });
+
+      // The list is newest-first, so the comment they just wrote is at the top
+      // of a container they may have scrolled away from. Scrolling it back is
+      // the expected acknowledgement — and it only ever runs as the direct
+      // result of their own submit, never while they're reading. Once, here,
+      // rather than again on success: the real comment settles into the same
+      // index 0 the pending one is already showing at.
+      requestAnimationFrame(() => {
+        listRef.current?.scrollTo({
+          top: 0,
+          behavior: reduceMotion ? "auto" : "smooth",
+        });
+      });
+
+      let response: Response;
+      try {
+        response = await fetch(
+          `/api/guides/${encodeURIComponent(guideSlug)}/comments`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ comment }),
+          },
+        );
+      } catch {
+        // `fetch` only rejects on a transport failure, so nothing was written
+        // and the draft below is still the only copy of what they wrote.
+        finishPosting();
+        setPostError(
+          "We couldn’t reach the server, so your comment wasn’t posted. Check your connection and try again.",
+        );
+        return;
+      }
+
+      const body = await readJson(response);
+
+      if (!response.ok) {
+        finishPosting();
+        setPostError(postFailureMessage(response.status, body));
+        if (response.status === 429) startPostCooldown(parseRetryAfter(body));
+        // Returning *before* `setDraft("")` below is what leaves the draft in
+        // the box on every failure path. Load-bearing for the 429 case in
+        // particular: nothing was written, so this textarea holds the only copy
+        // of what they wrote, and they are being asked to wait and send exactly
+        // that again. Nothing is committed to `state` either, so the optimistic
+        // row lapses with the transition — that is the rollback.
+        return;
+      }
+
+      finishPosting();
+
+      // Posted either way past this point, so the draft is cleared either way —
+      // leaving it in the box invites a duplicate of a comment that already
+      // exists.
+      setDraft("");
+
+      const created = parseComment(body);
+      if (!created) {
+        // The optimistic row lapses here too, even though the comment exists:
+        // we have no real id to key it by, and a row that might be a duplicate
+        // of the next load's is worse than this message asking for a reopen.
+        setPostError(
+          "Your comment was posted, but we couldn’t show it here. Reopen the comments to see it.",
+        );
+        return;
+      }
+
+      // Wrapped in its own `startTransition` because it runs after an `await`:
+      // React only treats updates as part of the action when they are marked,
+      // and an unmarked one would commit urgently — rendering the real comment
+      // *and* the still-live optimistic one for a frame, two copies at the top
+      // of the list. Marked, it lands in the same commit that retires the
+      // overlay.
+      startTransition(() => {
+        setState((previous) =>
+          previous.status === "loaded"
+            ? { status: "loaded", comments: [created, ...previous.comments] }
+            : // Posting doesn't depend on the list having loaded: if the GET
+              // failed or is still open, the new comment is still the one thing
+              // we know for certain is there, so it becomes the list.
+              { status: "loaded", comments: [created] },
+        );
+      });
+
+      // Here and nowhere else: past the `!created` guard, so a post whose
+      // response couldn't be parsed doesn't bump a count it can't show a row
+      // for, and after the only branch that adds to the list, so the caller's
+      // number moves in step with this one.
+      onCommentPosted?.();
     });
   }
 
@@ -419,14 +524,14 @@ export default function CommentsModal({
         // centred flex item taller than an `overflow-y-auto` container has its
         // overflowing top clipped and unreachable, which would hide the heading
         // and the close button on a short viewport.
-        className="my-auto w-full max-w-[520px] rounded-2xl bg-white p-5 shadow-[0_40px_80px_-40px_rgba(11,36,56,.85)] sm:p-6"
+        className="my-auto w-full max-w-[520px] rounded-2xl bg-white p-5 shadow-[0_40px_80px_-40px_rgba(11,36,56,.85)] sm:p-6 lg:max-w-[600px] lg:p-7"
       >
         {/* Header sits outside the scroll area below, so Close and the heading
             stay put however long the list is. */}
         <div className="flex items-start justify-between gap-3">
           <h2
             id={headingId}
-            className="flex items-center gap-2 text-[17px] font-extrabold leading-[1.25] tracking-[-.02em] text-ink"
+            className="flex items-center gap-2 text-[17px] font-extrabold leading-[1.25] tracking-[-.02em] text-ink lg:text-[19px]"
           >
             <span
               aria-hidden="true"
@@ -435,9 +540,9 @@ export default function CommentsModal({
               <CommentIcon size={17} />
             </span>
             Comments
-            {state.status === "loaded" && state.comments.length > 0 && (
-              <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[12.5px] font-bold tabular-nums text-[#68767f]">
-                {state.comments.length}
+            {headerCount > 0 && (
+              <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[12.5px] font-bold tabular-nums text-[#68767f] lg:text-[13.5px]">
+                {headerCount}
               </span>
             )}
           </h2>
@@ -453,76 +558,79 @@ export default function CommentsModal({
           </button>
         </div>
 
-        {state.status === "loading" && (
-          <p
-            role="status"
-            className="mt-5 flex items-center gap-2 text-[13.5px] text-ink-soft"
-          >
-            <SpinnerIcon size={15} />
-            Loading comments…
-          </p>
-        )}
-
-        {state.status === "error" && (
-          <p
-            role="alert"
-            className="mt-5 rounded-xl border border-danger/25 bg-danger/6 px-3.5 py-3 text-[13px] leading-[1.55] text-ink-soft"
-          >
-            We couldn’t load the comments for this guide. Please close this and
-            try again in a moment.
-          </p>
-        )}
-
-        {state.status === "loaded" && state.comments.length === 0 && (
-          <p className="mt-5 rounded-xl bg-surface-2 px-3.5 py-4 text-center text-[13.5px] text-ink-soft">
-            No comments yet.
-          </p>
-        )}
-
-        {state.status === "loaded" && state.comments.length > 0 && (
-          // Bounded height plus its own scroll: a guide with fifty comments
-          // must not push the close button past the bottom of the viewport.
-          // The bound tightens when the composer is present, so the box the
-          // reader came to type in doesn't sit below the fold.
-          <ul
-            ref={listRef}
-            className={`mt-4 space-y-2 overflow-y-auto pr-1 ${
-              isAuthenticated
-                ? "max-h-[min(42vh,320px)]"
-                : "max-h-[min(58vh,440px)]"
-            }`}
-          >
-            {state.comments.map((comment) => {
-              const posted = formatPostedAt(comment.createdAt);
-              return (
-                <li
-                  key={comment.id}
-                  className="rounded-xl bg-surface-2 px-3.5 py-3"
-                >
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="truncate text-[13.5px] font-bold text-ink">
-                      {comment.username}
-                    </span>
-                    {posted && (
-                      <time
-                        dateTime={comment.createdAt}
-                        className="flex-none text-[12px] text-[#8b98a1]"
-                      >
-                        {posted}
-                      </time>
-                    )}
-                  </div>
-                  {/* `break-words` so a pasted URL can't widen the panel past
-                      its `max-w`, `whitespace-pre-line` so the author's own
-                      line breaks survive. */}
-                  <p className="mt-1.5 break-words whitespace-pre-line text-[13.5px] leading-[1.55] text-ink-soft">
-                    {comment.comment}
-                  </p>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        {/* The one fixed-height slot every list state renders into — see
+            `listAreaClass`. Which state fills it is decided in one place, and
+            the real list wins whenever there is anything to show (including a
+            pending post while the read is still open or has failed), since
+            posting never depended on the read succeeding. */}
+        <div className={`mt-4 ${listAreaClass}`}>
+          {optimisticComments.length > 0 ? (
+            <ul ref={listRef} className="h-full space-y-2 overflow-y-auto pr-1">
+              {optimisticComments.map((comment) => {
+                const posted = formatPostedAt(comment.createdAt);
+                return (
+                  <li
+                    key={comment.id}
+                    className="rounded-xl bg-surface-2 px-3.5 py-3 lg:px-4 lg:py-3.5"
+                  >
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="truncate text-[13.5px] font-bold text-ink lg:text-[15px]">
+                        {comment.username}
+                      </span>
+                      {posted && (
+                        <time
+                          dateTime={comment.createdAt}
+                          className="flex-none text-[12px] text-[#8b98a1] lg:text-[13px]"
+                        >
+                          {posted}
+                        </time>
+                      )}
+                    </div>
+                    {/* `break-words` so a pasted URL can't widen the panel past
+                        its `max-w`, `whitespace-pre-line` so the author's own
+                        line breaks survive. */}
+                    <p className="mt-1.5 break-words whitespace-pre-line text-[13.5px] leading-[1.55] text-ink-soft lg:text-[15px] lg:leading-[1.6]">
+                      {comment.comment}
+                    </p>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : state.status === "loading" ? (
+            <>
+              {/* One polite announcement stands in for the whole decorative
+                  skeleton, as in `ItineraryDetailSkeleton`. */}
+              <p role="status" className="sr-only">
+                Loading comments…
+              </p>
+              {/* `overflow-hidden`, not `overflow-y-auto`: there is nothing
+                  here to scroll to, and a scrollbar that blinks in for the
+                  skeleton alone would be a visible seam. */}
+              <ul
+                aria-hidden="true"
+                className="h-full space-y-2 overflow-hidden pr-1"
+              >
+                <CommentSkeletonRow bodyWidths={["92%", "64%"]} />
+                <CommentSkeletonRow bodyWidths={["78%"]} />
+                <CommentSkeletonRow bodyWidths={["86%", "48%"]} />
+              </ul>
+            </>
+          ) : state.status === "error" ? (
+            <div className="flex h-full items-center justify-center">
+              <p
+                role="alert"
+                className="rounded-xl border border-danger/25 bg-danger/6 px-3.5 py-3 text-center text-[13px] leading-[1.55] text-ink-soft lg:text-[14.5px]"
+              >
+                We couldn’t load the comments for this guide. Please close this
+                and try again in a moment.
+              </p>
+            </div>
+          ) : (
+            <p className="flex h-full items-center justify-center px-3.5 text-center text-[13.5px] text-ink-soft lg:text-[14.5px]">
+              No comments yet.
+            </p>
+          )}
+        </div>
 
         {/* Last in the panel and outside every list branch on purpose: posting
             doesn't depend on the read succeeding, so the composer is there
@@ -535,13 +643,13 @@ export default function CommentsModal({
             <div className="flex items-baseline justify-between gap-3">
               <label
                 htmlFor={draftId}
-                className="text-[13px] font-bold text-ink"
+                className="text-[13px] font-bold text-ink lg:text-[14.5px]"
               >
                 Add a comment
               </label>
               <span
                 id={counterId}
-                className={`flex-none text-[12px] tabular-nums ${
+                className={`flex-none text-[12px] tabular-nums lg:text-[13px] ${
                   overLimit ? "font-bold text-danger" : "text-[#8b98a1]"
                 }`}
               >
@@ -567,7 +675,7 @@ export default function CommentsModal({
                 postError ? `${counterId} ${postErrorId}` : counterId
               }
               aria-invalid={overLimit || postError !== null}
-              className={`mt-2 w-full resize-y rounded-xl border bg-surface-3 px-3.5 py-2.5 text-[13.5px] leading-[1.55] text-ink outline-offset-2 outline-brand-500 placeholder:text-[#9fb1bd] focus-visible:outline-2 ${
+              className={`mt-2 w-full resize-y rounded-xl border bg-surface-3 px-3.5 py-2.5 text-[13.5px] leading-[1.55] text-ink outline-offset-2 outline-brand-500 placeholder:text-[#9fb1bd] focus-visible:outline-2 lg:min-h-[108px] lg:px-4 lg:py-3 lg:text-[15px] lg:leading-[1.6] ${
                 overLimit ? "border-danger/50" : "border-line"
               } ${posting ? "opacity-70" : ""}`}
             />
@@ -576,7 +684,7 @@ export default function CommentsModal({
               <p
                 id={postErrorId}
                 role="alert"
-                className="mt-3 rounded-xl border border-danger/25 bg-danger/6 px-3.5 py-3 text-[13px] leading-[1.55] text-ink-soft"
+                className="mt-3 rounded-xl border border-danger/25 bg-danger/6 px-3.5 py-3 text-[13px] leading-[1.55] text-ink-soft lg:text-[14.5px]"
               >
                 {postError}
               </p>
@@ -587,7 +695,7 @@ export default function CommentsModal({
                 type="submit"
                 disabled={!canSubmit}
                 aria-busy={posting}
-                className={`tp-btn-shadow inline-flex items-center gap-2 rounded-full bg-[linear-gradient(150deg,#2f7fb0,#134a6f)] px-5 py-2.5 text-[14px] font-bold text-white shadow-[0_12px_24px_-14px_rgba(19,74,111,.9)] outline-offset-2 outline-brand-500 focus-visible:outline-2 disabled:cursor-not-allowed disabled:opacity-55 disabled:shadow-none ${
+                className={`tp-btn-shadow inline-flex items-center gap-2 rounded-full bg-[linear-gradient(150deg,#2f7fb0,#134a6f)] px-5 py-2.5 text-[14px] font-bold text-white lg:px-6 lg:py-3 lg:text-[15px] shadow-[0_12px_24px_-14px_rgba(19,74,111,.9)] outline-offset-2 outline-brand-500 focus-visible:outline-2 disabled:cursor-not-allowed disabled:opacity-55 disabled:shadow-none ${
                   posting ? "cursor-wait" : ""
                 }`}
               >
@@ -599,6 +707,42 @@ export default function CommentsModal({
         )}
       </motion.div>
     </motion.div>
+  );
+}
+
+/**
+ * A stand-in for one comment while the initial read is in flight: the same
+ * `<li>` box, padding and rhythm as a real row, with `lp-shimmer` bars where
+ * the username and body will go (the convention `ItineraryDetailSkeleton`'s
+ * `Bar` follows, `prefers-reduced-motion` fallback included in globals.css).
+ * The bars' heights match the real lines' type sizes at each breakpoint, so
+ * the swap to real rows is a fill-in rather than a jump. Decorative only — the
+ * caller's `<ul>` is `aria-hidden`, and one `role="status"` line speaks for
+ * all of them.
+ */
+function CommentSkeletonRow({
+  bodyWidths,
+}: {
+  /** One shimmering line per entry, as a CSS width — varied per row so three
+   *  identical blocks don't read as a pattern rather than as text. */
+  bodyWidths: readonly string[];
+}) {
+  return (
+    <li className="rounded-xl bg-surface-2 px-3.5 py-3 lg:px-4 lg:py-3.5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="lp-shimmer block h-[13.5px] w-24 rounded-full lg:h-[15px] lg:w-28" />
+        <span className="lp-shimmer block h-[12px] w-16 flex-none rounded-full lg:h-[13px]" />
+      </div>
+      <div className="mt-2.5 space-y-2">
+        {bodyWidths.map((width, index) => (
+          <span
+            key={index}
+            className="lp-shimmer block h-[11px] rounded-full lg:h-[12px]"
+            style={{ width }}
+          />
+        ))}
+      </div>
+    </li>
   );
 }
 

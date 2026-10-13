@@ -36,6 +36,11 @@ interface GuideDetailViewProps {
    *  regardless of this flag. Lets the author bar decide whether liking is
    *  even an option right now. */
   isAuthenticated: boolean;
+  /** The signed-in reader's own `session.user.username`, or `null` for an
+   *  anonymous one. Read on the server by the page (there is no `useSession`
+   *  anywhere in this app) and forwarded to the comments modal, which uses it
+   *  only to label this reader's optimistic comment before the server answers. */
+  viewerUsername: string | null;
   /**
    * `GuideOwnerActions`, when the signed-in reader is this guide's author.
    *
@@ -92,6 +97,7 @@ export default function GuideDetailView({
   commentCount,
   likedByViewer,
   isAuthenticated,
+  viewerUsername,
   ownerActions,
   footer,
 }: GuideDetailViewProps) {
@@ -119,6 +125,7 @@ export default function GuideDetailView({
           commentCount={commentCount}
           likedByViewer={likedByViewer}
           isAuthenticated={isAuthenticated}
+          viewerUsername={viewerUsername}
           ownerActions={ownerActions}
         />
       }

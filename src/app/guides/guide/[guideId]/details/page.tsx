@@ -92,6 +92,10 @@ export default async function GuideDetailsPage(props: GuideDetailProps) {
   // `undefined === null` style near-misses into ownership.
   const isOwner = Boolean(session?.user?.id && session.user.id === authorId);
   const isAuthenticated = Boolean(session?.user?.id);
+  // Only ever used to label this reader's own optimistic comment while its POST
+  // is in flight — the server stamps the real username from the session, so
+  // this is display, never identity.
+  const viewerUsername = session?.user?.username ?? null;
   const likedByViewer = Boolean(
     session?.user?.id && likedUserIds.includes(session.user.id),
   );
@@ -110,6 +114,7 @@ export default async function GuideDetailsPage(props: GuideDetailProps) {
         commentCount={commentCount}
         likedByViewer={likedByViewer}
         isAuthenticated={isAuthenticated}
+        viewerUsername={viewerUsername}
         ownerActions={
           isOwner ? (
             <GuideOwnerActions slug={guide.slug} title={guide.title} />

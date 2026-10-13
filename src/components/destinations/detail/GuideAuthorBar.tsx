@@ -77,6 +77,7 @@ export default function GuideAuthorBar({
   commentCount,
   likedByViewer,
   isAuthenticated,
+  viewerUsername,
   ownerActions,
 }: {
   guide: DestinationGuide;
@@ -100,6 +101,10 @@ export default function GuideAuthorBar({
    *  the server; this component never reads a session itself (there is no
    *  `useSession` anywhere in this app). */
   isAuthenticated: boolean;
+  /** The signed-in reader's own username, or `null` for an anonymous one.
+   *  Decided on the server alongside `isAuthenticated` and passed straight to
+   *  `CommentsModal`, which needs it only to label an optimistic comment. */
+  viewerUsername: string | null;
   /**
    * `GuideOwnerActions`, when the signed-in reader wrote this guide. A slot
    * rather than an `isOwner` flag: ownership is decided on the server (see
@@ -559,6 +564,13 @@ export default function GuideAuthorBar({
           <CommentsModal
             guideSlug={guide.slug}
             isAuthenticated={isAuthenticated}
+            viewerUsername={viewerUsername}
+            // The local `comments` state, not the raw `commentCount` prop: it
+            // already includes this session's own posts (see `onCommentPosted`
+            // below), so the modal's header badge opens on the same number the
+            // chip that opened it is showing, instead of popping in once its
+            // `GET` resolves.
+            initialCommentCount={comments}
             // The modal is where a new comment is created, and its own header
             // badge would otherwise be the only number that knew about it —
             // leaving two counts for the same thing disagreeing on screen in
