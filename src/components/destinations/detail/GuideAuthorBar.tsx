@@ -43,9 +43,11 @@ const LIKE_ERROR_MS = 3600;
  * - **Comments** are real: `commentCount` is a server read from the `Comment`
  *   collection, rendered in the resting chip the way the like count is, and the
  *   button opens `CommentsModal`, which reads `GET /api/guides/<slug>/comments`
- *   and, for a signed-in reader, posts to it. The modal reports a successful
- *   post back through `onCommentPosted` so the chip and the modal's own badge
- *   never show two different numbers for the same guide.
+ *   and, for a signed-in reader, posts to it (and edits or deletes their own
+ *   comments). The modal reports a successful post back through
+ *   `onCommentPosted`, and a successful delete through `onCommentDeleted`, so
+ *   the chip and the modal's own badge never show two different numbers for
+ *   the same guide.
  *
  * The row has two shapes, decided by `ownerActions`:
  *
@@ -77,6 +79,7 @@ export default function GuideAuthorBar({
   commentCount,
   likedByViewer,
   isAuthenticated,
+  viewerUsername,
   ownerActions,
 }: {
   guide: DestinationGuide;
@@ -100,6 +103,10 @@ export default function GuideAuthorBar({
    *  the server; this component never reads a session itself (there is no
    *  `useSession` anywhere in this app). */
   isAuthenticated: boolean;
+  /** The signed-in reader's own username, or `null` for an anonymous one.
+   *  Decided on the server alongside `isAuthenticated` and passed straight to
+   *  `CommentsModal`, which needs it only to label an optimistic comment. */
+  viewerUsername: string | null;
   /**
    * `GuideOwnerActions`, when the signed-in reader wrote this guide. A slot
    * rather than an `isOwner` flag: ownership is decided on the server (see
@@ -559,6 +566,13 @@ export default function GuideAuthorBar({
           <CommentsModal
             guideSlug={guide.slug}
             isAuthenticated={isAuthenticated}
+            viewerUsername={viewerUsername}
+            // The local `comments` state, not the raw `commentCount` prop: it
+            // already includes this session's own posts (see `onCommentPosted`
+            // below), so the modal's header badge opens on the same number the
+            // chip that opened it is showing, instead of popping in once its
+            // `GET` resolves.
+            initialCommentCount={comments}
             // The modal is where a new comment is created, and its own header
             // badge would otherwise be the only number that knew about it —
             // leaving two counts for the same thing disagreeing on screen in
@@ -566,6 +580,10 @@ export default function GuideAuthorBar({
             // already succeeded, so this bar knows the answer without a round
             // trip.
             onCommentPosted={() => setComments((n) => n + 1)}
+            // The same bargain in reverse, for a reader deleting their own
+            // comment. Floored at zero for the reason the like count is: the
+            // seed and this session's arithmetic come from different reads.
+            onCommentDeleted={() => setComments((n) => Math.max(0, n - 1))}
             onClose={() => setCommentsOpen(false)}
           />
         )}

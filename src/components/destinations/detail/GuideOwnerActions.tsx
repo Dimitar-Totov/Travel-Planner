@@ -3,37 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AnimatePresence } from "motion/react";
-import { TrashIcon } from "@/components/icons";
+import { EditIcon, TrashIcon } from "@/components/icons";
 import DeleteGuideDialog from "./DeleteGuideDialog";
-
-/**
- * Pencil-on-a-line, drawn on the same 24x24 Lucide grid as
- * `components/icons.tsx`'s set.
- *
- * Local to this file rather than added to that set because this is the only
- * surface in the app with an "edit the thing you're looking at" affordance —
- * `/create-guide`'s own controls are all add/remove/reorder, which `PlusIcon`,
- * `TrashIcon` and the arrows already cover. If a second caller ever appears,
- * this is the moment to move it.
- */
-function PencilIcon({ size = 15 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z" />
-      <path d="M14.5 6.5l3 3" />
-    </svg>
-  );
-}
 
 interface GuideOwnerActionsProps {
   /** The guide's URL slug — the edit route's segment and the DELETE path. */
@@ -121,7 +92,7 @@ export default function GuideOwnerActions({
         // two different cursors there even though both are equally clickable.
         className="tp-chip-shadow inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-transparent bg-[linear-gradient(150deg,#2f7fb0,#134a6f)] px-5 py-2.5 text-[14px] font-bold text-white outline-offset-2 outline-brand-500 focus-visible:outline-2"
       >
-        <PencilIcon />
+        <EditIcon size={15} />
         Edit
       </Link>
 
