@@ -17,6 +17,8 @@ declare module "next-auth" {
   interface User {
     username: string;
     role: UserRole;
+    /** The sign-in form's "Keep me signed in" checkbox - see `JWT.rememberMe`. */
+    rememberMe: boolean;
   }
 
   interface Session {
@@ -66,6 +68,20 @@ declare module "@auth/core/jwt" {
      * of the mutation instead of trusting this claim.
      */
     role: UserRole;
+    /**
+     * Set once, from `User.rememberMe`, when the `jwt` callback mints a
+     * fresh token at sign-in - never touched again by the rotation branch,
+     * so it survives every later rotation unchanged for the life of the
+     * session. `false` is the only value that means anything: it tells
+     * `src/proxy.ts` to keep downgrading the session cookie back to a
+     * browser-session cookie on every request (see
+     * `src/lib/authCookies.ts`), undoing `@auth/core`'s own per-request
+     * re-stamp of the cookie's Max-Age. `undefined` - a session minted
+     * before this field existed - is treated as `true` (today's
+     * always-persistent behavior), not as "forget me", so it never changes
+     * behavior for an already-signed-in user.
+     */
+    rememberMe?: boolean;
   }
 }
 

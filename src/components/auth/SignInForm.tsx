@@ -52,10 +52,6 @@ export default function SignInForm({ callbackUrl }: { callbackUrl?: string }) {
         labelAside={<ComingSoon>Forgot?</ComingSoon>}
       />
 
-      {/* Presentational for now: session lifetime is a fixed 30-day `maxAge` in
-          lib/auth.ts and `signInAction` doesn't read this field. Kept because
-          it's in the signed-off design, and because honouring it later is a
-          server-side change, not a form one. */}
       <label className="flex items-center gap-2.5 text-[13.5px] text-ink">
         <input
           type="checkbox"

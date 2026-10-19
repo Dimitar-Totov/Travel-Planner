@@ -65,6 +65,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        // Not run through `credentialsSchema` below - it's a raw UI flag,
+        // not a credential rule, and that schema is shared with
+        // registration/sign-in validation that must stay scoped to
+        // email/password (see `lib/validation/auth.ts`). Declared here only
+        // so TypeScript knows `credentials.keepSignedIn` exists.
+        keepSignedIn: { label: "Keep me signed in", type: "checkbox" },
       },
       async authorize(credentials) {
         const parsed = credentialsSchema.safeParse(credentials);
@@ -95,6 +101,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           username: user.username,
           role: user.role,
+          // Anything other than the literal string "false" defaults to
+          // remembered - a caller that omits the field entirely (or an old
+          // client) keeps today's always-persistent cookie rather than a
+          // surprise early sign-out.
+          rememberMe: credentials?.keepSignedIn !== "false",
         };
       },
     }),
@@ -135,6 +146,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.id = user.id;
         token.username = user.username;
         token.role = user.role;
+        // Set once, here, at sign-in - never touched by the rotation
+        // branch below, so it rides unchanged on every successor token for
+        // the life of the session. See `JWT.rememberMe`'s doc comment
+        // (`types/next-auth.d.ts`) for what reads it.
+        token.rememberMe = user.rememberMe;
         token.refreshToken = issued.token;
         token.refreshTokenExpires = issued.expiresAt.getTime();
         token.accessTokenExpires = Date.now() + ACCESS_TOKEN_TTL_MS;
