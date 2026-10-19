@@ -1,8 +1,10 @@
 "use server";
 
 import { AuthError } from "next-auth";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { signIn, signOut } from "@/lib/auth";
+import { forgetSessionCookieOnClose } from "@/lib/authCookies";
 import { fieldErrorsOf, signInSchema } from "@/lib/validation/auth";
 
 export type SignInState = {
@@ -34,6 +36,9 @@ export async function signInAction(
   formData: FormData,
 ): Promise<SignInState> {
   const callbackUrl = safeRedirect(formData.get("callbackUrl")?.toString());
+  // Checkboxes aren't in `formData` at all when unchecked - there is no
+  // "false" value to read, only absence.
+  const keepSignedIn = formData.get("keepSignedIn") === "on";
 
   const parsed = signInSchema.safeParse({
     email: formData.get("email") ?? "",
@@ -50,7 +55,12 @@ export async function signInAction(
   const { email, password } = parsed.data;
 
   try {
-    await signIn("credentials", { email, password, redirect: false });
+    await signIn("credentials", {
+      email,
+      password,
+      keepSignedIn: keepSignedIn ? "true" : "false",
+      redirect: false,
+    });
   } catch (error) {
     // CredentialsSignin is the "wrong email or password" case. It stays
     // deliberately vague: telling the user which half was wrong tells an
@@ -65,6 +75,17 @@ export async function signInAction(
       };
     }
     throw error;
+  }
+
+  // `signIn()` just queued a persistent (30-day) session cookie regardless
+  // of the checkbox - Auth.js always writes one the same way (see
+  // `src/lib/authCookies.ts`). Downgrade it to a browser-session cookie
+  // here, immediately, rather than leaving that to `src/proxy.ts`'s first
+  // pass on the next navigation: closing the window in the instant between
+  // this redirect and the next page load is not realistic, but there's no
+  // reason to leave even that gap open when it costs nothing to close here.
+  if (!keepSignedIn) {
+    forgetSessionCookieOnClose(await cookies());
   }
 
   redirect(callbackUrl);
