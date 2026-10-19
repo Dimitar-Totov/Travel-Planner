@@ -1,5 +1,6 @@
 "use client";
 
+import { Eye, EyeOff } from "lucide-react";
 import { useState, type ComponentPropsWithoutRef, type ReactNode } from "react";
 
 type FieldChrome = {
@@ -148,18 +149,23 @@ export function PasswordField({
         type={visible ? "text" : "password"}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy(id, Boolean(hint), Boolean(error))}
-        className={inputClass(Boolean(error), desktopScale, "pr-[68px]")}
+        className={inputClass(Boolean(error), desktopScale, "pr-12")}
       />
-      {/* The accessible name keeps the visible word in it (WCAG 2.5.3) while
-          spelling out what's being shown. */}
+      {/* The accessible name keeps the visible word in it (WCAG 2.5.3) even
+          though the control is now an icon with no visible text. */}
       <button
         type="button"
         onClick={() => setVisible((current) => !current)}
         aria-label={visible ? "Hide password" : "Show password"}
+        title={visible ? "Hide password" : "Show password"}
         aria-controls={id}
-        className="absolute inset-y-0 right-0 flex items-center rounded-r-[10px] px-3.5 font-mono text-[10px] uppercase tracking-[.16em] text-muted-2 hover:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+        className="absolute inset-y-0 right-0 flex items-center rounded-r-[10px] px-3.5 text-muted-2 hover:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
       >
-        {visible ? "Hide" : "Show"}
+        {visible ? (
+          <EyeOff className="h-[18px] w-[18px]" aria-hidden="true" />
+        ) : (
+          <Eye className="h-[18px] w-[18px]" aria-hidden="true" />
+        )}
       </button>
     </FieldFrame>
   );

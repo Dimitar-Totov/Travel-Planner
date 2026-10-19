@@ -35,7 +35,7 @@ export default function SignInForm({ callbackUrl }: { callbackUrl?: string }) {
         name="email"
         type="email"
         label="Email"
-        placeholder="john.doe@gmail.com"
+        placeholder="John"
         autoComplete="email"
         required
         defaultValue={state.values?.email}
@@ -46,6 +46,7 @@ export default function SignInForm({ callbackUrl }: { callbackUrl?: string }) {
         id="signin-password"
         name="password"
         label="Password"
+        placeholder="*********"
         autoComplete="current-password"
         required
         error={state.fields?.password}
